@@ -62,14 +62,14 @@ const AppContent: React.FC = () => {
         }, 600);
     };
 
-    const handleCookComplete = (food: GameItem) => {
+    const handleCookComplete = (food: GameItem, quality: number) => {
         setPet(prev => prev ? StatCalculator.calculate(prev, food.effects) : null);
         triggerStatFocus(['hunger', 'happiness']);
         SoundService.playHappy();
         addMessage({
             id: Date.now().toString(),
             sender: currentRole,
-            text: `fez ${food.name}! que cheirinho bom!`,
+            text: `fez ${food.name}! ${'⭐'.repeat(quality)} que cheirinho bom!`,
             timestamp: Date.now(),
             isAction: true
         });
@@ -169,7 +169,13 @@ const AppContent: React.FC = () => {
                 />
             } />
             <Route path="/cooking" element={
-                <KitchenPage onCookComplete={handleCookComplete} />
+                <KitchenPage
+                    onCookComplete={handleCookComplete}
+                    petPhase={pet?.growthStage === 'NEWBORN' ? 1 :
+                        pet?.growthStage === 'BABY' ? 2 :
+                            pet?.growthStage === 'PUPPY' ? 3 :
+                                pet?.growthStage === 'CHILD' ? 4 : 5}
+                />
             } />
         </Routes>
     );

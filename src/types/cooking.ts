@@ -1,55 +1,76 @@
-import { GameItem } from '../types';
+// ===== COOKING SYSTEM v2: EXPERIMENTAL DISCOVERY =====
 
-export enum GrowthStage {
-    NEWBORN = 'NEWBORN',           // Recém-nascido
-    BABY = 'BABY',                 // Bebê
-    PUPPY = 'PUPPY',               // Filhote
-    CHILD = 'CHILD',               // Criança
-    TEEN = 'TEEN'                  // Jovem/Adolescente
-}
-
-export enum IngredientType {
-    BASE = 'BASE',           // Leite, Água, Caldo
-    FRUIT = 'FRUIT',         // Banana, Maçã
-    VEGETABLE = 'VEGETABLE', // Cenoura, Batata
-    PROTEIN = 'PROTEIN',     // Frango, Peixe
-    EXTRA = 'EXTRA'          // Mel, Aveia, Temperos
-}
-
-export enum CookingAction {
-    CHOP = 'CHOP',      // Cortar (cliques)
-    MASH = 'MASH',      // Amassar (cliques rápidos)
-    MIX = 'MIX',        // Misturar (movimento circular / drag)
-    BLEND = 'BLEND',    // Bater no liquidificador (segurar botão)
-    COOK = 'COOK',      // Cozinhar/Ferver (barra de tempo)
-    BAKE = 'BAKE',      // Assar (barra de tempo)
-    SEASON = 'SEASON'   // Temperar (arrastar/clique)
-}
+// --- Ingredient (Static Data) ---
+export type IngredientGroup = 'fruit' | 'vegetable' | 'protein' | 'liquid' | 'extra';
+export type BaseTexture = 'solid' | 'soft' | 'liquid';
 
 export interface Ingredient {
     id: string;
     name: string;
     icon: string;
-    type: IngredientType;
+    group: IngredientGroup;
+    baseTexture: BaseTexture;
+    complexity: number; // 1-5
+    acceptedPhases: number[]; // [1, 2, 3, 4, 5]
 }
 
-export interface CookingStep {
-    id: string;
-    action: CookingAction;
+// --- Dish (Live Mutable State) ---
+export type DishTexture = 'liquid' | 'creamy' | 'pasty' | 'solid' | 'strange';
+export type DishTemperature = 'cold' | 'warm' | 'hot' | 'burning';
+export type DishHomogeneity = 'low' | 'medium' | 'high';
+export type DishStatus = 'preparing' | 'ready' | 'burned' | 'failed';
+
+export interface Dish {
+    ingredients: Ingredient[];
+    texture: DishTexture;
+    temperature: DishTemperature;
+    homogeneity: DishHomogeneity;
+    complexity: number;
+    status: DishStatus;
+    actionHistory: CookingActionType[];
+}
+
+// --- Cooking Actions ---
+export type CookingActionType = 'MIX' | 'BEAT' | 'COOK' | 'COOL' | 'SEASON';
+
+export interface CookingAction {
+    type: CookingActionType;
     label: string;
-    duration?: number; // Tempo em segundos para COOK/BAKE
-    targetClicks?: number; // Cliques necessários para CHOP/MASH
-    failureCondition?: 'OVERCOOK' | 'UNDERCOOK' | 'NONE';
+    icon: string;
 }
 
-export interface Recipe {
-    id: string;
-    name: string;
-    icon: string; // Ícone final da comida
-    stage: GrowthStage;
-    ingredients: string[]; // IDs dos ingredientes
-    steps: CookingStep[];
-    result: GameItem; // O item final gerado para alimentar
-    description?: string;
-    difficulty: number; // 1-5
+export const COOKING_ACTIONS: CookingAction[] = [
+    { type: 'MIX', label: 'Misturar', icon: '🥄' },
+    { type: 'BEAT', label: 'Bater', icon: '🌪️' },
+    { type: 'COOK', label: 'Cozinhar', icon: '🔥' },
+    { type: 'COOL', label: 'Esfriar', icon: '❄️' },
+    { type: 'SEASON', label: 'Temperar', icon: '🧂' },
+];
+
+// --- Evaluation Result ---
+export interface EvaluationResult {
+    accepted: boolean;
+    reason?: 'burned' | 'weird_texture' | 'too_complex' | 'ingredient_not_for_phase' | 'empty';
+    quality?: number; // 1-5 stars
 }
+
+// --- Discovered Recipe ---
+export interface DiscoveredRecipe {
+    id: string; // hash
+    name: string;
+    ingredientIds: string[];
+    actions: CookingActionType[];
+    discoveredAtPhase: number;
+    quality: number;
+    discoveredAt: number; // timestamp
+}
+
+// --- Phase Complexity Limits ---
+// Phase 1 (Newborn) = max 4, Phase 5 (Teen) = max 15
+export const PHASE_COMPLEXITY_LIMITS: Record<number, number> = {
+    1: 4,
+    2: 6,
+    3: 8,
+    4: 10,
+    5: 15,
+};

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, PetState, ChatMessage, UserRole, Mood, GameItem, ItemEffects } from './types';
+import { StatCalculator } from './services/gameLogic/StatCalculator';
 import { getPetResponse } from './services/petResponseService';
 import { SoundService } from './services/soundService';
 import { StatusBars } from './components/StatusBars';
@@ -32,6 +33,8 @@ const App: React.FC = () => {
         setMessages(prev => [...prev, msg]);
     };
 
+
+
     // Helper to determine which stats changed
     const getAffectedStats = (effects: ItemEffects): string[] => {
         const keys: string[] = [];
@@ -49,27 +52,7 @@ const App: React.FC = () => {
     };
 
     const applyStatChanges = (prev: PetState, effects: ItemEffects): PetState => {
-        const applyChange = (current: number, change: number | undefined) => {
-            if (!change) return current;
-            return Math.max(0, Math.min(100, current + change));
-        };
-
-        const newHunger = applyChange(prev.hunger, effects.hunger);
-        const newEnergy = applyChange(prev.energy, effects.energy);
-        const newCleanliness = applyChange(prev.cleanliness, effects.cleanliness);
-        const newHappiness = applyChange(prev.happiness, effects.happiness);
-
-        const bonusSatisfaction = effects.satisfaction || 0;
-        const newSatisfaction = applyChange(prev.satisfaction, bonusSatisfaction);
-
-        return {
-            ...prev,
-            hunger: newHunger,
-            energy: newEnergy,
-            cleanliness: newCleanliness,
-            happiness: newHappiness,
-            satisfaction: newSatisfaction
-        };
+        return StatCalculator.calculate(prev, effects);
     };
 
     // Removed triggerImageGeneration - using static assets/emojis for now

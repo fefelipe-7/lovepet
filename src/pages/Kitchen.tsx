@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { GameItem } from '../types';
 import { Dish, Ingredient, CookingActionType, COOKING_ACTIONS, EvaluationResult } from '../types/cooking';
 import { ALL_INGREDIENTS } from '../data/cooking/ingredients';
-import { createDish, addIngredient, applyAction, finishDish } from '../services/cooking/dishService';
+import { createDish, addIngredient, applyAction, finishDish, getDishSignature } from '../services/cooking/dishService';
 import { evaluateDish, getPetReaction } from '../services/cooking/evaluationService';
 import { discoverRecipe, getRecipeBook } from '../services/cooking/recipeBookService';
+import { addToInventory } from '../services/cooking/inventoryService';
 
 interface KitchenPageProps {
     onCookComplete: (food: GameItem, quality: number) => void;
-    petPhase: number; // 1-5
+    petPhase: number;
 }
 
 export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPhase }) => {
@@ -19,34 +20,37 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
     const [result, setResult] = useState<EvaluationResult | null>(null);
     const [isNewRecipe, setIsNewRecipe] = useState(false);
     const [recipeName, setRecipeName] = useState('');
-    const cookTimerRef = useRef<number | null>(null);
 
-    // Cleanup timer
-    useEffect(() => {
-        return () => {
-            if (cookTimerRef.current) clearInterval(cookTimerRef.current);
-        };
-    }, []);
+    // Animation states
+    const [lastAction, setLastAction] = useState<CookingActionType | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
 
     const handleBack = () => navigate('/');
 
     const handleAddIngredient = (ingredient: Ingredient) => {
         if (dish.status !== 'preparing') return;
-        if (dish.ingredients.length >= 5) return; // Max 5 ingredients
+        if (dish.ingredients.length >= 5) return;
         setDish(prev => addIngredient(prev, ingredient));
     };
 
     const handleAction = (action: CookingActionType) => {
         if (dish.status !== 'preparing') return;
-        if (dish.ingredients.length === 0) return; // Need ingredients first
+        if (dish.ingredients.length === 0) return;
 
-        // Special handling for COOK - continuous action
-        if (action === 'COOK') {
-            setDish(prev => applyAction(prev, action));
-            // Could add timer for burning risk here
-        } else {
-            setDish(prev => applyAction(prev, action));
-        }
+        // Trigger animation
+        setLastAction(action);
+        setIsAnimating(true);
+        setTimeout(() => setIsAnimating(false), 500);
+
+        setDish(prev => applyAction(prev, action));
+    };
+
+    const handleDiscard = () => {
+        setDish(createDish());
+        setShowResult(false);
+        setResult(null);
+        setIsNewRecipe(false);
+        setRecipeName('');
     };
 
     const handleServe = () => {
@@ -58,47 +62,47 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
 
         if (evalResult.accepted && evalResult.quality) {
             const discovered = discoverRecipe(finalDish, petPhase, evalResult.quality);
+            const name = discovered?.name || getExistingRecipeName(finalDish);
+            setRecipeName(name);
+
             if (discovered) {
                 setIsNewRecipe(true);
-                setRecipeName(discovered.name);
+                // Add to inventory
+                addToInventory(discovered, evalResult.quality);
+            } else {
+                // Already known recipe - still add to inventory
+                const existingRecipe = {
+                    id: getDishSignature(finalDish),
+                    name: name,
+                    ingredientIds: finalDish.ingredients.map(i => i.id),
+                    actions: finalDish.actionHistory,
+                    discoveredAtPhase: petPhase,
+                    quality: evalResult.quality,
+                    discoveredAt: Date.now()
+                };
+                addToInventory(existingRecipe, evalResult.quality);
             }
         }
 
         setShowResult(true);
     };
 
-    const handleFinish = () => {
-        if (result?.accepted && result.quality) {
-            // Create a GameItem from the dish
-            const foodItem: GameItem = {
-                id: `cooked_${Date.now()}`,
-                name: recipeName || 'Prato Especial',
-                icon: '🍽️',
-                actionText: `comeu ${recipeName || 'prato especial'}`,
-                type: 'FEED',
-                effects: {
-                    hunger: 10 + (result.quality * 5),
-                    happiness: result.quality * 3,
-                    satisfaction: result.quality * 2,
-                }
-            };
-            onCookComplete(foodItem, result.quality);
-        }
-        navigate('/');
+    const getExistingRecipeName = (finalDish: Dish): string => {
+        const sig = getDishSignature(finalDish);
+        const book = getRecipeBook();
+        const existing = book.find(r => r.id === sig);
+        return existing?.name || 'Prato Especial';
     };
 
-    const handleReset = () => {
-        setDish(createDish());
-        setShowResult(false);
-        setResult(null);
-        setIsNewRecipe(false);
-        setRecipeName('');
+    const handleFinish = () => {
+        // Don't feed immediately - food goes to inventory
+        navigate('/');
     };
 
     // --- Visual Helpers ---
     const getTextureVisual = () => {
         switch (dish.texture) {
-            case 'liquid': return { bg: 'bg-blue-200', animation: 'animate-pulse' };
+            case 'liquid': return { bg: 'bg-blue-200', animation: '' };
             case 'creamy': return { bg: 'bg-yellow-100', animation: '' };
             case 'pasty': return { bg: 'bg-orange-200', animation: '' };
             case 'solid': return { bg: 'bg-amber-300', animation: '' };
@@ -115,8 +119,22 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
         }
     };
 
+    // Get ingredient visual classes based on last action
+    const getIngredientAnimation = () => {
+        if (!isAnimating || !lastAction) return '';
+        switch (lastAction) {
+            case 'MIX': return 'animate-spin';
+            case 'BEAT': return 'animate-bounce';
+            case 'COOK': return 'animate-pulse scale-110';
+            case 'COOL': return 'opacity-70 scale-90';
+            case 'SEASON': return 'animate-wiggle';
+            default: return '';
+        }
+    };
+
     const textureVis = getTextureVisual();
     const tempVis = getTemperatureVisual();
+    const ingredientAnim = getIngredientAnimation();
 
     // --- Result Screen ---
     if (showResult && result) {
@@ -131,11 +149,16 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
                 </p>
 
                 {result.accepted && result.quality && (
-                    <div className="flex gap-1 mb-4">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <span key={i} className={`text-2xl ${i < result.quality! ? '' : 'opacity-30'}`}>⭐</span>
-                        ))}
-                    </div>
+                    <>
+                        <div className="flex gap-1 mb-4">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <span key={i} className={`text-2xl ${i < result.quality! ? '' : 'opacity-30'}`}>⭐</span>
+                            ))}
+                        </div>
+                        <p className="text-sm text-cute-text/60 mb-4 lowercase">
+                            +1 {recipeName} no inventário!
+                        </p>
+                    </>
                 )}
 
                 {isNewRecipe && (
@@ -147,10 +170,10 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
 
                 <div className="flex gap-4">
                     <button
-                        onClick={handleReset}
+                        onClick={handleDiscard}
                         className="bg-white px-6 py-3 rounded-full font-bold text-cute-text shadow-md"
                     >
-                        tentar de novo
+                        cozinhar mais
                     </button>
                     <button
                         onClick={handleFinish}
@@ -171,10 +194,17 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
             <header className="p-4 flex items-center justify-between shrink-0">
                 <button onClick={handleBack} className="bg-white rounded-full p-2 shadow-sm text-xl">⬅️</button>
                 <h1 className="text-xl font-black text-cute-text lowercase">cozinha</h1>
-                <div className="w-10"></div>
+                <button
+                    onClick={handleDiscard}
+                    disabled={dish.ingredients.length === 0}
+                    className="bg-red-100 rounded-full p-2 shadow-sm text-xl disabled:opacity-30"
+                    title="Jogar fora"
+                >
+                    🗑️
+                </button>
             </header>
 
-            {/* Station Area - The Bowl/Pan */}
+            {/* Station Area */}
             <div className="flex-1 flex flex-col items-center justify-center px-4 relative">
 
                 {/* Temperature Indicator */}
@@ -182,12 +212,22 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
                     {tempVis.icon}
                 </div>
 
+                {/* Status Badge */}
+                {dish.status === 'burned' && (
+                    <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse">
+                        🔥 queimado!
+                    </div>
+                )}
+
                 {/* The Bowl */}
                 <div className={`
                     w-56 h-56 rounded-[40%] ${textureVis.bg} ${textureVis.animation}
                     shadow-xl border-8 border-white/50 relative overflow-hidden
                     flex flex-wrap items-center justify-center gap-2 p-4
-                    ${dish.status === 'burned' ? 'bg-gray-800' : ''}
+                    transition-all duration-300
+                    ${dish.status === 'burned' ? 'bg-gray-800 border-gray-600' : ''}
+                    ${isAnimating && lastAction === 'MIX' ? 'rotate-12' : ''}
+                    ${isAnimating && lastAction === 'BEAT' ? 'scale-95' : ''}
                 `}>
                     {/* Steam if hot */}
                     {(dish.temperature === 'hot' || dish.temperature === 'burning') && (
@@ -197,9 +237,15 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
                         </div>
                     )}
 
-                    {/* Ingredients in bowl */}
+                    {/* Ingredients in bowl with animation */}
                     {dish.ingredients.map((ing, idx) => (
-                        <span key={idx} className="text-3xl drop-shadow-sm">{ing.icon}</span>
+                        <span
+                            key={idx}
+                            className={`text-3xl drop-shadow-sm transition-all duration-300 ${ingredientAnim}`}
+                            style={{ animationDelay: `${idx * 50}ms` }}
+                        >
+                            {dish.status === 'burned' ? '🔥' : ing.icon}
+                        </span>
                     ))}
 
                     {dish.ingredients.length === 0 && (
@@ -209,8 +255,11 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
 
                 {/* Status Pills */}
                 <div className="flex gap-2 mt-4">
-                    <span className="bg-white/80 px-3 py-1 rounded-full text-xs font-bold text-cute-text/70 lowercase">
-                        {dish.homogeneity === 'low' ? 'separado' : dish.homogeneity === 'medium' ? 'misturado' : 'uniforme'}
+                    <span className={`
+                        px-3 py-1 rounded-full text-xs font-bold lowercase transition-all
+                        ${dish.homogeneity === 'high' ? 'bg-green-100 text-green-700' : 'bg-white/80 text-cute-text/70'}
+                    `}>
+                        {dish.homogeneity === 'low' ? 'separado' : dish.homogeneity === 'medium' ? 'misturado' : '✓ uniforme'}
                     </span>
                     <span className="bg-white/80 px-3 py-1 rounded-full text-xs font-bold text-cute-text/70 lowercase">
                         complexidade: {dish.complexity}
@@ -226,7 +275,11 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
                             key={action.type}
                             onClick={() => handleAction(action.type)}
                             disabled={dish.status !== 'preparing' || dish.ingredients.length === 0}
-                            className="w-14 h-14 bg-white rounded-2xl shadow-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform disabled:opacity-50"
+                            className={`
+                                w-14 h-14 bg-white rounded-2xl shadow-sm flex flex-col items-center justify-center gap-0.5 
+                                transition-all disabled:opacity-50
+                                ${lastAction === action.type && isAnimating ? 'scale-110 ring-2 ring-cute-pink' : 'active:scale-95'}
+                            `}
                         >
                             <span className="text-2xl">{action.icon}</span>
                             <span className="text-[8px] font-bold text-cute-text/60 lowercase">{action.label}</span>
@@ -238,13 +291,13 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
                 <button
                     onClick={handleServe}
                     disabled={dish.ingredients.length === 0 || dish.status !== 'preparing'}
-                    className="w-full bg-cute-green text-white py-4 rounded-2xl font-black text-lg shadow-md lowercase disabled:opacity-50 active:scale-98 transition-transform mb-2"
+                    className="w-full bg-cute-green text-white py-4 rounded-2xl font-black text-lg shadow-md lowercase disabled:opacity-50 active:scale-[0.98] transition-transform mb-2"
                 >
                     🍽️ servir
                 </button>
             </div>
 
-            {/* Pantry - Ingredient Grid */}
+            {/* Pantry */}
             <div className="bg-white/90 rounded-t-[2rem] pt-4 pb-6 px-4 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
                 <p className="text-center text-xs font-bold text-cute-text/50 mb-3 lowercase">despensa</p>
                 <div className="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto">

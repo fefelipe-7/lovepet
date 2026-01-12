@@ -6,6 +6,7 @@ import { getPetResponse } from './services/petResponseService';
 import { SoundService } from './services/soundService';
 import { Home } from './pages/Home';
 import { KitchenPage } from './pages/Kitchen';
+import { consumeFromInventory } from './services/cooking/inventoryService';
 
 const AppContent: React.FC = () => {
     // --- State ---
@@ -82,7 +83,7 @@ const AppContent: React.FC = () => {
         const applyAndRespond = (item: GameItem) => {
             setPet(prev => prev ? StatCalculator.calculate(prev, item.effects) : null);
             triggerStatFocus(getAffectedStats(item.effects));
-            SoundService.playFeed(); // generic sound
+            SoundService.playFeed();
             const userMsg: ChatMessage = {
                 id: Date.now().toString(),
                 sender: currentRole,
@@ -94,9 +95,18 @@ const AppContent: React.FC = () => {
             triggerLocalResponse(item.actionText, petRef.current!);
         };
 
-        if (item.type === 'PLAY' || item.type === 'PHOTO') SoundService.playPlay();
-        // Simplified interaction handler for Route refactor stability
-        // Complex RPS logic can be re-added or handled inside ActionPanel/GameService later if complex
+        // Handle FEED from inventory - consume one item
+        if (item.type === 'FEED') {
+            const consumed = consumeFromInventory(item.id);
+            if (!consumed) {
+                // No more of this item
+                return;
+            }
+            SoundService.playFeed();
+        } else if (item.type === 'PLAY' || item.type === 'PHOTO') {
+            SoundService.playPlay();
+        }
+
         applyAndRespond(item);
     };
 

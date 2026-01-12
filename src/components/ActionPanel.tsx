@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserRole, GameItem } from '../types';
-import { FOOD_ITEMS } from '../data/items/foodItems';
 import { CLEAN_ITEMS } from '../data/items/cleanItems';
 import { PLAY_ITEMS } from '../data/items/playItems';
 import { SLEEP_ITEMS } from '../data/items/sleepItems';
+import { getInventoryAsGameItems, InventoryItem } from '../services/cooking/inventoryService';
 
 interface ActionPanelProps {
   onInteract: (item: GameItem) => void;
@@ -21,13 +21,15 @@ interface InteractionButtonProps {
   item: GameItem;
   onClick: () => void;
   disabled: boolean;
+  showQuantity?: boolean;
 }
 
 // Sub-component to handle individual button animation state
 const InteractionButton: React.FC<InteractionButtonProps> = ({
   item,
   onClick,
-  disabled
+  disabled,
+  showQuantity = false
 }) => {
   const [isPressed, setIsPressed] = useState(false);
 
@@ -35,8 +37,6 @@ const InteractionButton: React.FC<InteractionButtonProps> = ({
     if (disabled) return;
     setIsPressed(true);
     onClick();
-
-    // Reset animation state after delay
     setTimeout(() => setIsPressed(false), 300);
   };
 
@@ -75,6 +75,14 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
   onToggleExpand
 }) => {
   const [activeTab, setActiveTab] = useState<Category>('FOOD');
+  const [foodInventory, setFoodInventory] = useState<GameItem[]>([]);
+
+  // Refresh inventory when panel expands or tab changes to FOOD
+  useEffect(() => {
+    if (activeTab === 'FOOD') {
+      setFoodInventory(getInventoryAsGameItems());
+    }
+  }, [activeTab, isExpanded]);
 
   // If sleeping, show wake up panel
   if (isSleeping) {
@@ -99,9 +107,9 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
     { id: 'SLEEP', icon: '🛌', label: 'dormir', color: 'bg-[#E2F0CB]' },
   ];
 
-  const getCurrentList = () => {
+  const getCurrentList = (): GameItem[] => {
     switch (activeTab) {
-      case 'FOOD': return FOOD_ITEMS;
+      case 'FOOD': return foodInventory;
       case 'CLEAN': return CLEAN_ITEMS;
       case 'PLAY': return PLAY_ITEMS;
       case 'SLEEP': return SLEEP_ITEMS;
@@ -117,6 +125,8 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
       if (!isExpanded) onToggleExpand();
     }
   };
+
+  const currentList = getCurrentList();
 
   return (
     <div className={`
@@ -163,16 +173,25 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
          bg-[#FFF5F7] flex-1 overflow-y-auto scrollbar-hide p-3 pb-6 transition-opacity duration-300
          ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}
       `}>
-        <div className="grid grid-cols-3 gap-2 pb-8">
-          {getCurrentList().map((item) => (
-            <InteractionButton
-              key={item.id}
-              item={item}
-              disabled={disabled}
-              onClick={() => onInteract(item)}
-            />
-          ))}
-        </div>
+        {activeTab === 'FOOD' && currentList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-cute-text/50">
+            <span className="text-4xl mb-2">🍳</span>
+            <p className="text-sm font-bold lowercase">nenhuma comida preparada</p>
+            <p className="text-xs lowercase">vá para a cozinha fazer algo!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 pb-8">
+            {currentList.map((item) => (
+              <InteractionButton
+                key={item.id}
+                item={item}
+                disabled={disabled}
+                onClick={() => onInteract(item)}
+                showQuantity={activeTab === 'FOOD'}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

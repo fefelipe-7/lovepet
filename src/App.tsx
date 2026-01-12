@@ -6,6 +6,8 @@ import { SoundService } from './services/soundService';
 import { StatusBars } from './components/StatusBars';
 import { ActionPanel } from './components/ActionPanel';
 import { SetupModal } from './components/SetupModal';
+import { KitchenModal } from './components/kitchen/KitchenModal';
+import { RECIPES } from './data/cooking/recipes';
 
 const App: React.FC = () => {
     // --- State ---
@@ -20,6 +22,7 @@ const App: React.FC = () => {
 
     // Menu State lifted up to control layout
     const [isMenuExpanded, setIsMenuExpanded] = useState(false);
+    const [isKitchenOpen, setIsKitchenOpen] = useState(false);
 
     // State for Status Bar Focus Animation
     const [activeStats, setActiveStats] = useState<string[]>([]);
@@ -241,6 +244,23 @@ const App: React.FC = () => {
 
     // --- MAIN ORCHESTRATOR ---
 
+    const handleCookComplete = (food: GameItem) => {
+        setIsKitchenOpen(false);
+        setPet(prev => prev ? StatCalculator.calculate(prev, food.effects) : null);
+        triggerStatFocus(['hunger', 'happiness']);
+        SoundService.playHappy(); // You might want a specific cooking sound later
+
+        addMessage({
+            id: Date.now().toString(),
+            sender: currentRole,
+            text: `fez ${food.name}! que cheirinho bom!`,
+            timestamp: Date.now(),
+            isAction: true
+        });
+
+        triggerLocalResponse(`cozinhei ${food.name}`, petRef.current!);
+    };
+
     const handleInteraction = async (item: GameItem) => {
         if (!pet || !users || isThinking) return;
 
@@ -427,6 +447,24 @@ const App: React.FC = () => {
                     </div>
                 </div>
             </header>
+
+            {/* KITCHEN BUTTON */}
+            {!pet.isSleeping && (
+                <button
+                    onClick={() => setIsKitchenOpen(true)}
+                    className="absolute top-24 right-4 sm:right-8 w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-full shadow-lg flex items-center justify-center text-2xl sm:text-3xl z-40 border-2 border-orange-300 hover:scale-110 transition-transform animate-bounce-slow"
+                    title="Cozinha"
+                >
+                    👨‍🍳
+                </button>
+            )}
+
+            <KitchenModal
+                isOpen={isKitchenOpen}
+                onClose={() => setIsKitchenOpen(false)}
+                onCookComplete={handleCookComplete}
+                recipes={RECIPES}
+            />
 
             {/* --- MAIN GAME AREA --- */}
             <div className={`

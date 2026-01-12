@@ -1,0 +1,53 @@
+import { KitchenModal } from './KitchenModal';
+import { RECIPES } from '../../data/cooking/recipes';
+import { GameItem } from '../../types';
+
+// ... import StatCalculator ...
+import { StatCalculator } from '../../services/gameLogic/StatCalculator';
+
+// ... Inside App component params/state ...
+export const App = () => {
+    // ... existing state ...
+    const [isKitchenOpen, setIsKitchenOpen] = useState(false);
+
+    // ... handleCookComplete ...
+    const handleCookComplete = (food: GameItem) => {
+        // Feed pet immediately or add to inventory?
+        // Proposal: Feed immediately as a reward for the minigame
+        SoundService.playHappy(); // Or playEat
+        setPet(prev => prev ? StatCalculator.calculate(prev, food.effects) : null);
+        triggerStatFocus(['hunger', 'happiness']); // Assuming food always gives these
+        addMessage({
+            id: Date.now().toString(),
+            sender: currentRole,
+            text: `cozinhou ${food.name}! que delícia!`,
+            timestamp: Date.now(),
+            isAction: true
+        });
+        triggerLocalResponse(`cozinhei ${food.name}`, petRef.current!);
+    };
+    
+    // ...
+    
+    return (
+        // ...
+        
+        {/* Pass down to ActionPanel or a new Floating Button */}
+        <button 
+             onClick={() => setIsKitchenOpen(true)}
+             className="absolute bottom-32 right-4 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40 border-2 border-cute-pink hover:scale-110 transition-transform"
+             title="Cozinha"
+        >
+            👨‍🍳
+        </button>
+
+        <KitchenModal 
+            isOpen={isKitchenOpen} 
+            onClose={() => setIsKitchenOpen(false)}
+            onCookComplete={handleCookComplete}
+            recipes={RECIPES} // Can filter by stage here later
+        />
+        
+        // ...
+    );
+}

@@ -29,6 +29,8 @@ export interface PetState {
   cleanliness: number; // 0-100
   mood: Mood;
   age: number; // in days
+  growthStage: 'NEWBORN' | 'BABY' | 'PUPPY' | 'CHILD' | 'TEEN'; // Stage derived from age/xp
+  xp: number; // Experience points to unlock stages
   image: string | null; // URL of the generated image
   isSleeping: boolean; // Novo estado para o sistema de sono
 }

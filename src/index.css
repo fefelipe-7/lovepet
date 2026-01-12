@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-nunito bg-cute-bg text-cute-text overscroll-none;
+  }
+}
+
+.bg-room {
+  background: linear-gradient(to bottom, #FFF5F7 0%, #FFF5F7 65%, #FFE8D6 65%, #FFDbb5 100%);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.floor-pattern {
+   background-image: repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(200, 150, 100, 0.1) 50px);
+}

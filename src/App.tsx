@@ -9,11 +9,23 @@ import { KitchenPage } from './pages/Kitchen';
 import { consumeFromInventory } from './services/cooking/inventoryService';
 
 // Growth System
-import { GrowthPet, CareMetrics, PHASE_CONFIGS, createDefaultGrowthPet, createDefaultCareMetrics, ActivityType } from './types/growth';
+import { GrowthPet, CareMetrics, createDefaultGrowthPet, createDefaultCareMetrics, ActivityType } from './types/growth';
 import { processSleepCycles, startSleep, endSleep } from './services/growth/timeService';
 import { getMetrics, recordInteraction, updateTimeMetrics } from './services/growth/metricsService';
-import { checkPhaseTransition, getPhaseName, getProgressBreakdown } from './services/growth/progressionService';
+import { checkPhaseTransition, getPhaseName } from './services/growth/progressionService';
 import { loadPet, savePet } from './services/growth/petPersistence';
+
+// Personality System
+import {
+    Temperamento, Personalidade, EstadoEmocional, Habito, Memoria, TipoAcao,
+    criarPersonalidadeCompleta
+} from './types/personality';
+import { loadTemperamento, saveTemperamento, getTemperamentoDescricao } from './services/personality/temperamentService';
+import { loadPersonalidade, savePersonalidade, aplicarEfeitoAcao, getEfeitoAcao, mapGameActionToPersonality } from './services/personality/personalityService';
+import { loadEstadoEmocional, saveEstadoEmocional, atualizarEstadoPorAcao, getHumorEmoji } from './services/personality/emotionalService';
+import { loadHabitos, registrarAcaoHabito } from './services/personality/habitService';
+import { loadMemorias, registrarMemoria, deveCriarMemoria } from './services/personality/memoryService';
+import { getPerfisEmergentes } from './services/personality/profileService';
 
 const AppContent: React.FC = () => {
     // --- HARDCODED USERS ---
@@ -25,6 +37,13 @@ const AppContent: React.FC = () => {
     // --- Growth System State ---
     const [growthPet, setGrowthPet] = useState<GrowthPet>(() => loadPet());
     const [careMetrics, setCareMetrics] = useState<CareMetrics>(() => getMetrics());
+
+    // --- Personality System State ---
+    const [temperamento] = useState<Temperamento>(() => loadTemperamento());
+    const [personalidade, setPersonalidade] = useState<Personalidade>(() => loadPersonalidade());
+    const [estadoEmocional, setEstadoEmocional] = useState<EstadoEmocional>(() => loadEstadoEmocional());
+    const [habitos, setHabitos] = useState<Habito[]>(() => loadHabitos());
+    const [memorias, setMemorias] = useState<Memoria[]>(() => loadMemorias());
 
     // --- Legacy PetState (for compatibility with existing UI) ---
     const [pet, setPet] = useState<PetState>(() => ({
@@ -151,6 +170,44 @@ const AppContent: React.FC = () => {
         }
     };
 
+    // --- Apply personality effects ---
+    const applyPersonalityAction = (acao: TipoAcao, eventoDescricao?: string) => {
+        // Apply to personality
+        const { personalidade: newPers, efeitoBase } = aplicarEfeitoAcao(
+            acao, personalidade, temperamento, estadoEmocional
+        );
+        setPersonalidade(newPers);
+        savePersonalidade(newPers);
+
+        // Update emotional state
+        const newEstado = atualizarEstadoPorAcao(acao, estadoEmocional, temperamento);
+        setEstadoEmocional(newEstado);
+        saveEstadoEmocional(newEstado);
+
+        // Record habit if applicable
+        if (efeitoBase?.habito) {
+            const newHabitos = registrarAcaoHabito(efeitoBase.habito);
+            setHabitos(newHabitos);
+        }
+
+        // Maybe create memory
+        if (efeitoBase?.memoriaChance && eventoDescricao) {
+            const emocaoIntensidade = Math.abs(newEstado.felicidade - 50) + Math.abs(newEstado.seguranca - 50);
+            if (deveCriarMemoria(efeitoBase.memoriaChance, emocaoIntensidade / 100)) {
+                const emocao = newEstado.felicidade > 60 ? 'alegria' :
+                    newEstado.frustracao > 60 ? 'frustacao' :
+                        newEstado.seguranca < 40 ? 'medo' : 'amor';
+                const newMemorias = registrarMemoria(
+                    eventoDescricao,
+                    emocao,
+                    emocaoIntensidade,
+                    growthPet.idadeEmMinutos
+                );
+                setMemorias(newMemorias);
+            }
+        }
+    };
+
     const handleCookComplete = (food: GameItem, quality: number) => {
         setPet(prev => prev ? StatCalculator.calculate(prev, food.effects) : prev);
         triggerStatFocus(['hunger', 'happiness']);
@@ -166,6 +223,9 @@ const AppContent: React.FC = () => {
 
         // Record in growth system
         recordGrowthInteraction('cozinhar');
+
+        // Apply personality effect
+        applyPersonalityAction('cozinhar', `cozinhou ${food.name} com qualidade ${quality} estrelas`);
     };
 
     const handleInteraction = async (item: GameItem) => {
@@ -192,11 +252,14 @@ const AppContent: React.FC = () => {
             if (!consumed) return;
             SoundService.playFeed();
             recordGrowthInteraction('alimentar');
+            applyPersonalityAction('alimentar', `foi alimentado com ${item.name}`);
         } else if (item.type === 'PLAY' || item.type === 'PHOTO') {
             SoundService.playPlay();
             recordGrowthInteraction('brincar');
+            applyPersonalityAction('brincar_livre', `brincou: ${item.name}`);
         } else if (item.type === 'CLEAN') {
             recordGrowthInteraction('limpar');
+            applyPersonalityAction('limpar', 'tomou banho');
         }
 
         applyAndRespond(item);

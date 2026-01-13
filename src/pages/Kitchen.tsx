@@ -192,19 +192,22 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
 
     // --- Main Cooking UI ---
     return (
-        <div
-            className="h-[100dvh] w-full flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${cenarioCozinha})` }}
-        >
+        <div className="h-[100dvh] w-full flex flex-col overflow-hidden relative">
+            {/* Background with overlay */}
+            <div
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: `url(${cenarioCozinha})` }}
+            />
+            <div className="absolute inset-0 bg-black/30" />
 
             {/* Header */}
-            <header className="p-4 flex items-center justify-between shrink-0">
-                <button onClick={handleBack} className="bg-white rounded-full p-2 shadow-sm text-xl">⬅️</button>
-                <h1 className="text-xl font-black text-cute-text lowercase">cozinha</h1>
+            <header className="relative z-10 p-4 flex items-center justify-between shrink-0">
+                <button onClick={handleBack} className="bg-white/90 backdrop-blur-sm rounded-full p-2.5 shadow-lg text-xl hover:scale-105 transition-transform">⬅️</button>
+                <h1 className="text-xl font-black text-white lowercase drop-shadow-md">cozinha</h1>
                 <button
                     onClick={handleDiscard}
                     disabled={dish.ingredients.length === 0}
-                    className="bg-red-100 rounded-full p-2 shadow-sm text-xl disabled:opacity-30"
+                    className="bg-white/90 backdrop-blur-sm rounded-full p-2.5 shadow-lg text-xl disabled:opacity-30 hover:scale-105 transition-transform"
                     title="Jogar fora"
                 >
                     🗑️
@@ -212,7 +215,7 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
             </header>
 
             {/* Station Area */}
-            <div className="flex-1 flex flex-col items-center justify-center px-4 relative">
+            <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4">
 
                 {/* Temperature Indicator */}
                 <div className={`absolute top-4 right-4 text-3xl ${tempVis.color}`}>
@@ -285,21 +288,23 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
             </div>
 
             {/* Action Buttons */}
-            <div className="px-4 pb-2 shrink-0">
-                <div className="flex justify-center gap-3 mb-4">
+            <div className="relative z-10 px-4 pb-2 shrink-0">
+                <div className="flex justify-center gap-2 mb-3">
                     {COOKING_ACTIONS.map(action => (
                         <button
                             key={action.type}
                             onClick={() => handleAction(action.type)}
                             disabled={dish.status !== 'preparing' || dish.ingredients.length === 0}
                             className={`
-                                w-14 h-14 bg-white rounded-2xl shadow-sm flex flex-col items-center justify-center gap-0.5 
-                                transition-all disabled:opacity-50
-                                ${lastAction === action.type && isAnimating ? 'scale-110 ring-2 ring-cute-pink' : 'active:scale-95'}
+                                w-12 h-12 sm:w-14 sm:h-14 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg 
+                                flex flex-col items-center justify-center gap-0.5 
+                                transition-all duration-200 disabled:opacity-40
+                                hover:scale-105 hover:bg-white
+                                ${lastAction === action.type && isAnimating ? 'scale-110 ring-2 ring-cute-pink bg-cute-pink/20' : 'active:scale-95'}
                             `}
                         >
-                            <span className="text-2xl">{action.icon}</span>
-                            <span className="text-[8px] font-bold text-cute-text/60 lowercase">{action.label}</span>
+                            <span className="text-xl sm:text-2xl">{action.icon}</span>
+                            <span className="text-[7px] sm:text-[8px] font-bold text-cute-text/60 lowercase">{action.label}</span>
                         </button>
                     ))}
                 </div>
@@ -308,25 +313,39 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
                 <button
                     onClick={handleServe}
                     disabled={dish.ingredients.length === 0 || dish.status !== 'preparing'}
-                    className="w-full bg-cute-green text-white py-4 rounded-2xl font-black text-lg shadow-md lowercase disabled:opacity-50 active:scale-[0.98] transition-transform mb-2"
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-400 text-white py-3.5 rounded-2xl font-black text-lg shadow-lg lowercase disabled:opacity-40 disabled:grayscale active:scale-[0.98] transition-all hover:shadow-xl"
                 >
                     🍽️ servir
                 </button>
             </div>
 
             {/* Pantry */}
-            <div className="bg-white/90 rounded-t-[2rem] pt-4 pb-6 px-4 shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-                <p className="text-center text-xs font-bold text-cute-text/50 mb-3 lowercase">despensa</p>
-                <div className="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto">
-                    {ALL_INGREDIENTS.map(ingredient => (
+            <div className="relative z-10 bg-gradient-to-t from-white via-white/95 to-white/80 rounded-t-[2rem] pt-4 pb-6 px-3 shrink-0 shadow-[0_-8px_30px_rgba(0,0,0,0.15)] backdrop-blur-sm">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                    <span className="text-lg">🧺</span>
+                    <p className="text-sm font-bold text-cute-text/70 lowercase">despensa</p>
+                    <span className="text-xs text-cute-text/40">({dish.ingredients.length}/5)</span>
+                </div>
+
+                <div className="grid grid-cols-5 sm:grid-cols-7 gap-2 max-h-36 overflow-y-auto pb-2 scrollbar-hide">
+                    {ALL_INGREDIENTS.map((ingredient, idx) => (
                         <button
                             key={ingredient.id}
                             onClick={() => handleAddIngredient(ingredient)}
                             disabled={dish.status !== 'preparing' || dish.ingredients.length >= 5}
-                            className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-2xl active:scale-90 transition-transform disabled:opacity-30 hover:bg-white border border-transparent hover:border-cute-pink/30"
+                            className={`
+                                aspect-square bg-white rounded-2xl flex flex-col items-center justify-center gap-0.5
+                                shadow-sm border-2 border-transparent
+                                transition-all duration-200 active:scale-90
+                                disabled:opacity-30 disabled:grayscale
+                                hover:border-cute-pink/40 hover:shadow-md hover:scale-105
+                                ${dish.ingredients.some(i => i.id === ingredient.id) ? 'ring-2 ring-cute-pink/50 bg-cute-pink/10' : ''}
+                            `}
                             title={ingredient.name}
+                            style={{ animationDelay: `${idx * 30}ms` }}
                         >
-                            {ingredient.icon}
+                            <span className="text-2xl">{ingredient.icon}</span>
+                            <span className="text-[8px] font-semibold text-cute-text/50 truncate w-full text-center px-1 lowercase">{ingredient.name}</span>
                         </button>
                     ))}
                 </div>

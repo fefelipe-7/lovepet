@@ -15,29 +15,29 @@ export const PLAY_ITEMS: GameItem[] = [
     // --- CLÁSSICOS ---
     {
         id: 'ball', name: 'bola', icon: '⚽', actionText: 'jogar bola', type: 'PLAY',
-        effects: { happiness: 25, energy: -20, hunger: -15, satisfaction: 15 }
+        effects: { happiness: 20, energy: -15, hunger: -10, cleanliness: -5, satisfaction: 10 }
     },
     {
         id: 'teddy', name: 'pelúcia', icon: '🧸', actionText: 'dar urso de pelúcia', type: 'PLAY',
-        effects: { happiness: 30, energy: -5, satisfaction: 25 }
+        effects: { happiness: 25, energy: -5, satisfaction: 20 }
     },
     {
         id: 'box', name: 'caixa', icon: '📦', actionText: 'dar uma caixa de papelão', type: 'PLAY',
-        effects: { happiness: 35, satisfaction: 20, energy: -5 }
+        effects: { happiness: 30, energy: -5, cleanliness: -5, satisfaction: 15 }
     },
     // --- ATIVOS ---
     {
         id: 'laser', name: 'laser', icon: '🔦', actionText: 'apontar o laser', type: 'PLAY',
-        effects: { happiness: 30, energy: -30, hunger: -15 }
+        effects: { happiness: 25, energy: -25, hunger: -10, satisfaction: 10 }
     },
     {
         id: 'bubbles', name: 'bolhas', icon: '🫧', actionText: 'fazer bolhas de sabão', type: 'PLAY',
-        effects: { happiness: 20, cleanliness: 5, satisfaction: 15, energy: -5 }
+        effects: { happiness: 15, energy: -5, cleanliness: 5, satisfaction: 10 }
     },
     // --- BAGUNÇA ---
     {
         id: 'mud', name: 'lama', icon: '🐷', actionText: 'pular na lama', type: 'PLAY',
-        effects: { happiness: 50, cleanliness: -50, energy: -15, satisfaction: 10 }
+        effects: { happiness: 40, energy: -15, hunger: -5, cleanliness: -40, satisfaction: 5 }
     },
     {
         id: 'photo', name: 'foto', icon: '📸', actionText: 'tirar foto', type: 'PHOTO',

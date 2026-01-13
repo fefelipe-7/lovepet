@@ -7,6 +7,8 @@ import { SoundService } from './services/soundService';
 import { Home } from './pages/Home';
 import { KitchenPage } from './pages/Kitchen';
 import { ProfilePage } from './pages/Profile';
+import { ReadingPage } from './pages/Reading';
+import { Book, calculateReadingRewards } from './data/reading/books';
 import { consumeFromInventory } from './services/cooking/inventoryService';
 
 // Growth System
@@ -229,6 +231,31 @@ const AppContent: React.FC = () => {
         applyPersonalityAction('cozinhar', `cozinhou ${food.name} com qualidade ${quality} estrelas`);
     };
 
+    const handleReadComplete = (book: Book, rewards: { energy: number; curiosidade: number; persistencia: number; amor: number }) => {
+        // Apply energy and happiness changes
+        setPet(prev => prev ? {
+            ...prev,
+            energy: Math.max(0, prev.energy + rewards.energy),
+            happiness: Math.min(100, prev.happiness + rewards.amor)
+        } : prev);
+
+        triggerStatFocus(['energy', 'happiness']);
+        SoundService.playHappy();
+
+        addMessage({
+            id: Date.now().toString(),
+            sender: 'pet',
+            text: `terminamos "${book.title}"! 📖✨ adorei ler junto!`,
+            timestamp: Date.now()
+        });
+
+        // Record in growth system
+        recordGrowthInteraction('brincar');
+
+        // Apply personality effect with cognitive boost
+        applyPersonalityAction('ensinar', `leu o livro "${book.title}" (${book.pages} páginas)`);
+    };
+
     const handleInteraction = async (item: GameItem) => {
         if (!pet || !users || isThinking) return;
 
@@ -348,6 +375,12 @@ const AppContent: React.FC = () => {
                     estadoEmocional={estadoEmocional}
                     habitos={habitos}
                     memorias={memorias}
+                />
+            } />
+            <Route path="/reading" element={
+                <ReadingPage
+                    onReadComplete={handleReadComplete}
+                    petEnergy={pet.energy}
                 />
             } />
         </Routes>

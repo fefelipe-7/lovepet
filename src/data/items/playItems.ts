@@ -7,6 +7,11 @@ export const PLAY_ITEMS: GameItem[] = [
         effects: { happiness: 0, energy: -10 }, // Effects handled dynamically by game result
         minigame: 'RPS'
     },
+    {
+        id: 'reading', name: 'leitura', icon: '📚', actionText: 'ir para biblioteca', type: 'PLAY',
+        effects: { happiness: 0, energy: 0 }, // Effects handled by reading page
+        minigame: 'READING'
+    },
     // --- CLÁSSICOS ---
     {
         id: 'ball', name: 'bola', icon: '⚽', actionText: 'jogar bola', type: 'PLAY',

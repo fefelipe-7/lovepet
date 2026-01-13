@@ -31,6 +31,19 @@ export const Home: React.FC<HomeProps> = ({
         navigate('/cooking');
     };
 
+    const goToReading = () => {
+        navigate('/reading');
+    };
+
+    // Wrap onInteraction to handle minigame navigation
+    const handleInteraction = (item: GameItem) => {
+        if (item.minigame === 'READING') {
+            goToReading();
+            return;
+        }
+        onInteraction(item);
+    };
+
     const currentUser = users[currentRole];
     const lastPetMessage = [...messages].reverse().find(m => m.sender === 'pet')?.text || "...";
 
@@ -167,7 +180,7 @@ export const Home: React.FC<HomeProps> = ({
             {/* --- BOTTOM INVENTORY PANEL --- */}
             <div className="w-full relative z-30 shrink-0">
                 <ActionPanel
-                    onInteract={onInteraction}
+                    onInteract={handleInteraction}
                     disabled={isThinking}
                     currentUserRole={currentRole}
                     isSleeping={pet.isSleeping}

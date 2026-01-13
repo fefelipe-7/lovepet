@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { User, PetState, ChatMessage, UserRole, Mood, GameItem, ItemEffects } from './types';
 import { StatCalculator } from './services/gameLogic/StatCalculator';
 import { getPetResponse } from './services/petResponseService';
@@ -8,6 +8,13 @@ import { Home } from './pages/Home';
 import { KitchenPage } from './pages/Kitchen';
 import { consumeFromInventory } from './services/cooking/inventoryService';
 
+// Growth System
+import { GrowthPet, CareMetrics, PHASE_CONFIGS, createDefaultGrowthPet, createDefaultCareMetrics, ActivityType } from './types/growth';
+import { processSleepCycles, startSleep, endSleep } from './services/growth/timeService';
+import { getMetrics, recordInteraction, updateTimeMetrics } from './services/growth/metricsService';
+import { checkPhaseTransition, getPhaseName, getProgressBreakdown } from './services/growth/progressionService';
+import { loadPet, savePet } from './services/growth/petPersistence';
+
 const AppContent: React.FC = () => {
     // --- HARDCODED USERS ---
     const defaultUsers: Record<UserRole, User> = {
@@ -15,29 +22,32 @@ const AppContent: React.FC = () => {
         [UserRole.USER_B]: { name: 'nana', avatar: '👩' }
     };
 
-    const defaultPet: PetState = {
+    // --- Growth System State ---
+    const [growthPet, setGrowthPet] = useState<GrowthPet>(() => loadPet());
+    const [careMetrics, setCareMetrics] = useState<CareMetrics>(() => getMetrics());
+
+    // --- Legacy PetState (for compatibility with existing UI) ---
+    const [pet, setPet] = useState<PetState>(() => ({
         name: 'bichinho',
-        age: 1,
+        age: growthPet.idadeEmMinutos,
         mood: Mood.HAPPY,
         hunger: 80,
         happiness: 80,
-        energy: 80,
+        energy: growthPet.energia,
         cleanliness: 80,
-        satisfaction: 80,
-        isSleeping: false,
+        satisfaction: Math.round(growthPet.progressoDaFase * 100),
+        isSleeping: growthPet.estaDormindo,
         image: '',
-        growthStage: 'BABY',
+        growthStage: ['NEWBORN', 'BABY', 'PUPPY', 'CHILD', 'TEEN'][growthPet.faseAtual - 1] as PetState['growthStage'],
         xp: 0
-    };
+    }));
 
-    // --- State ---
     const [users] = useState<Record<UserRole, User>>(defaultUsers);
-    const [pet, setPet] = useState<PetState>(defaultPet);
     const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.USER_A);
     const [isSwitchingUser, setIsSwitchingUser] = useState(false);
 
     const [messages, setMessages] = useState<ChatMessage[]>([
-        { id: '0', sender: 'pet', text: `oiii! eu sou ${defaultPet.name}! ❤️`, timestamp: Date.now() }
+        { id: '0', sender: 'pet', text: `oiii! eu sou bichinho! ❤️`, timestamp: Date.now() }
     ]);
     const [isThinking, setIsThinking] = useState(false);
     const [isMenuExpanded, setIsMenuExpanded] = useState(false);
@@ -45,6 +55,40 @@ const AppContent: React.FC = () => {
     const petRef = useRef<PetState | null>(null);
 
     useEffect(() => { petRef.current = pet; }, [pet]);
+
+    // --- Process time delta on app load ---
+    useEffect(() => {
+        const result = processSleepCycles(growthPet, careMetrics);
+        const transitionResult = checkPhaseTransition(result.pet, result.metrics);
+
+        setGrowthPet(transitionResult.pet);
+        setCareMetrics(transitionResult.metrics);
+
+        savePet(transitionResult.pet);
+        updateTimeMetrics(transitionResult.metrics);
+
+        if (transitionResult.transitioned) {
+            const phaseName = getPhaseName(transitionResult.pet.faseAtual);
+            addMessage({
+                id: Date.now().toString(),
+                sender: 'pet',
+                text: `🎉 eba!! cresci! agora sou ${phaseName}! 🌟`,
+                timestamp: Date.now()
+            });
+            SoundService.playHappy();
+        }
+    }, []);
+
+    // --- Sync growthPet with legacy pet ---
+    useEffect(() => {
+        setPet(prev => ({
+            ...prev,
+            energy: growthPet.energia,
+            isSleeping: growthPet.estaDormindo,
+            satisfaction: Math.round(growthPet.progressoDaFase * 100),
+            growthStage: ['NEWBORN', 'BABY', 'PUPPY', 'CHILD', 'TEEN'][growthPet.faseAtual - 1] as PetState['growthStage'],
+        }));
+    }, [growthPet]);
 
     // --- Helpers ---
     const addMessage = (msg: ChatMessage) => {
@@ -74,7 +118,7 @@ const AppContent: React.FC = () => {
                 if (response.newMood === Mood.HAPPY || response.newMood === Mood.EXCITED) SoundService.playHappy();
                 if (response.newMood === Mood.SAD || response.newMood === Mood.ANGRY) SoundService.playSad();
             }
-            setPet(prev => prev ? { ...prev, mood: response.newMood } : null);
+            setPet(prev => prev ? { ...prev, mood: response.newMood } : prev);
             addMessage({
                 id: Date.now().toString(),
                 sender: 'pet',
@@ -85,8 +129,30 @@ const AppContent: React.FC = () => {
         }, 600);
     };
 
+    // --- Record interaction in growth system ---
+    const recordGrowthInteraction = (type: ActivityType) => {
+        const newMetrics = recordInteraction(type);
+        setCareMetrics(newMetrics);
+
+        // Check progression
+        const result = checkPhaseTransition(growthPet, newMetrics);
+        setGrowthPet(result.pet);
+        savePet(result.pet);
+
+        if (result.transitioned) {
+            const phaseName = getPhaseName(result.pet.faseAtual);
+            addMessage({
+                id: Date.now().toString(),
+                sender: 'pet',
+                text: `🎉 eba!! cresci! agora sou ${phaseName}! 🌟`,
+                timestamp: Date.now()
+            });
+            SoundService.playHappy();
+        }
+    };
+
     const handleCookComplete = (food: GameItem, quality: number) => {
-        setPet(prev => prev ? StatCalculator.calculate(prev, food.effects) : null);
+        setPet(prev => prev ? StatCalculator.calculate(prev, food.effects) : prev);
         triggerStatFocus(['hunger', 'happiness']);
         SoundService.playHappy();
         addMessage({
@@ -97,13 +163,16 @@ const AppContent: React.FC = () => {
             isAction: true
         });
         triggerLocalResponse(`cozinhei ${food.name}`, petRef.current!);
+
+        // Record in growth system
+        recordGrowthInteraction('cozinhar');
     };
 
     const handleInteraction = async (item: GameItem) => {
         if (!pet || !users || isThinking) return;
 
         const applyAndRespond = (item: GameItem) => {
-            setPet(prev => prev ? StatCalculator.calculate(prev, item.effects) : null);
+            setPet(prev => prev ? StatCalculator.calculate(prev, item.effects) : prev);
             triggerStatFocus(getAffectedStats(item.effects));
             SoundService.playFeed();
             const userMsg: ChatMessage = {
@@ -120,20 +189,27 @@ const AppContent: React.FC = () => {
         // Handle FEED from inventory - consume one item
         if (item.type === 'FEED') {
             const consumed = consumeFromInventory(item.id);
-            if (!consumed) {
-                // No more of this item
-                return;
-            }
+            if (!consumed) return;
             SoundService.playFeed();
+            recordGrowthInteraction('alimentar');
         } else if (item.type === 'PLAY' || item.type === 'PHOTO') {
             SoundService.playPlay();
+            recordGrowthInteraction('brincar');
+        } else if (item.type === 'CLEAN') {
+            recordGrowthInteraction('limpar');
         }
 
         applyAndRespond(item);
     };
 
     const handleWakeUp = () => {
-        setPet(prev => prev ? { ...prev, isSleeping: false } : null);
+        const result = endSleep(growthPet, careMetrics);
+        setGrowthPet(result.pet);
+        setCareMetrics(result.metrics);
+        savePet(result.pet);
+        updateTimeMetrics(result.metrics);
+
+        setPet(prev => prev ? { ...prev, isSleeping: false } : prev);
         triggerStatFocus(['energy']);
         addMessage({
             id: Date.now().toString(),
@@ -142,6 +218,13 @@ const AppContent: React.FC = () => {
             timestamp: Date.now()
         });
         SoundService.playHappy();
+    };
+
+    const handleSleep = () => {
+        const newGrowthPet = startSleep(growthPet);
+        setGrowthPet(newGrowthPet);
+        savePet(newGrowthPet);
+        setPet(prev => prev ? { ...prev, isSleeping: true } : prev);
     };
 
     const toggleUser = () => {
@@ -154,11 +237,11 @@ const AppContent: React.FC = () => {
         }, 300);
     };
 
-
+    // Periodic game loop (stats decay)
     useEffect(() => {
         const gameLoop = setInterval(() => {
             setPet(prev => {
-                if (!prev) return null;
+                if (!prev) return prev;
                 if (prev.isSleeping) {
                     return { ...prev, energy: Math.min(100, prev.energy + 5), hunger: Math.max(0, prev.hunger - 1) };
                 }
@@ -168,7 +251,6 @@ const AppContent: React.FC = () => {
                     energy: Math.max(0, prev.energy - 1),
                     cleanliness: Math.max(0, prev.cleanliness - 1),
                     happiness: Math.max(0, prev.happiness - (prev.hunger < 30 ? 1 : 0)),
-                    satisfaction: Math.max(0, prev.satisfaction - 1)
                 };
             });
         }, 20000);
@@ -190,10 +272,7 @@ const AppContent: React.FC = () => {
             <Route path="/cooking" element={
                 <KitchenPage
                     onCookComplete={handleCookComplete}
-                    petPhase={pet.growthStage === 'NEWBORN' ? 1 :
-                        pet.growthStage === 'BABY' ? 2 :
-                            pet.growthStage === 'PUPPY' ? 3 :
-                                pet.growthStage === 'CHILD' ? 4 : 5}
+                    petPhase={growthPet.faseAtual}
                 />
             } />
         </Routes>

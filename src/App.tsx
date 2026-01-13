@@ -156,7 +156,6 @@ const AppContent: React.FC = () => {
 
 
     useEffect(() => {
-        if (!isSetup) return;
         const gameLoop = setInterval(() => {
             setPet(prev => {
                 if (!prev) return null;

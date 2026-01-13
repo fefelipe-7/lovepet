@@ -336,12 +336,24 @@ const AppContent: React.FC = () => {
                 if (prev.isSleeping) {
                     return { ...prev, energy: Math.min(100, prev.energy + 5), hunger: Math.max(0, prev.hunger - 1) };
                 }
+
+                // Calculate happiness change
+                let happinessChange = 0;
+                if (prev.hunger < 20) {
+                    happinessChange = -1; // Very hungry = unhappy
+                } else if (prev.hunger > 60 && prev.energy > 40) {
+                    happinessChange = 1; // Well-fed and rested = happier
+                }
+
+                // Apply with floor of 20 for happiness
+                const newHappiness = Math.max(20, Math.min(100, prev.happiness + happinessChange));
+
                 return {
                     ...prev,
                     hunger: Math.max(0, prev.hunger - 2),
                     energy: Math.max(0, prev.energy - 1),
                     cleanliness: Math.max(0, prev.cleanliness - 1),
-                    happiness: Math.max(0, prev.happiness - (prev.hunger < 30 ? 1 : 0)),
+                    happiness: newHappiness,
                 };
             });
         }, 20000);

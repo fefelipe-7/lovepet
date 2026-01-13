@@ -6,6 +6,7 @@ import { getPetResponse } from './services/petResponseService';
 import { SoundService } from './services/soundService';
 import { Home } from './pages/Home';
 import { KitchenPage } from './pages/Kitchen';
+import { ProfilePage } from './pages/Profile';
 import { consumeFromInventory } from './services/cooking/inventoryService';
 
 // Growth System
@@ -336,6 +337,17 @@ const AppContent: React.FC = () => {
                 <KitchenPage
                     onCookComplete={handleCookComplete}
                     petPhase={growthPet.faseAtual}
+                />
+            } />
+            <Route path="/profile" element={
+                <ProfilePage
+                    growthPet={growthPet}
+                    careMetrics={careMetrics}
+                    temperamento={temperamento}
+                    personalidade={personalidade}
+                    estadoEmocional={estadoEmocional}
+                    habitos={habitos}
+                    memorias={memorias}
                 />
             } />
         </Routes>

@@ -87,6 +87,15 @@ export const Home: React.FC<HomeProps> = ({
                 </button>
             )}
 
+            {/* PROFILE BUTTON */}
+            <button
+                onClick={() => navigate('/profile')}
+                className="absolute top-24 left-4 sm:left-8 w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-full shadow-lg flex items-center justify-center text-2xl sm:text-3xl z-40 border-2 border-pink-300 hover:scale-110 transition-transform"
+                title="Perfil do Bichinho"
+            >
+                📊
+            </button>
+
             {/* --- MAIN GAME AREA --- */}
             <div className={`
                 flex-1 w-full relative flex flex-col items-center min-h-0 transition-all duration-500

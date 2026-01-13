@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import HTMLFlipBook from 'react-pageflip';
 import { Book, getRandomBooks, calculateReadingRewards } from '../data/reading/books';
 
 interface ReadingPageProps {
@@ -9,6 +10,40 @@ interface ReadingPageProps {
 
 type ViewState = 'library' | 'reading' | 'success';
 
+// Page component for react-pageflip
+const Page = forwardRef<HTMLDivElement, { pageNum: number; totalPages: number }>(
+    ({ pageNum, totalPages }, ref) => {
+        return (
+            <div
+                ref={ref}
+                className="w-full h-full flex flex-col items-center justify-center"
+                style={{
+                    background: 'linear-gradient(135deg, #fffef5 0%, #f8f5e6 100%)',
+                    boxShadow: 'inset -2px 0 10px rgba(0,0,0,0.05)'
+                }}
+            >
+                {/* Page texture lines */}
+                <div className="absolute inset-0 opacity-5 pointer-events-none">
+                    {Array.from({ length: 15 }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="w-full h-[1px] bg-gray-400"
+                            style={{ marginTop: `${(i + 2) * 6}%` }}
+                        />
+                    ))}
+                </div>
+
+                {/* Page number */}
+                <span className="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-amber-700/30 font-serif">
+                    {pageNum}
+                </span>
+            </div>
+        );
+    }
+);
+
+Page.displayName = 'Page';
+
 export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEnergy }) => {
     const navigate = useNavigate();
     const [view, setView] = useState<ViewState>('library');
@@ -16,12 +51,10 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
     const [carouselPage, setCarouselPage] = useState(0);
     const [selectedBook, setSelectedBook] = useState<Book | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
-    const [isFlipping, setIsFlipping] = useState(false);
-    const [flipDirection, setFlipDirection] = useState<'next' | 'prev'>('next');
+    const flipBookRef = useRef<any>(null);
 
     const BOOKS_PER_PAGE = 10;
 
-    // Load random books on mount
     useEffect(() => {
         setBooks(getRandomBooks(60));
     }, []);
@@ -36,36 +69,31 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
         const rewards = calculateReadingRewards(book);
         if (petEnergy < Math.abs(rewards.energy)) return;
         setSelectedBook(book);
-        setCurrentPage(1);
+        setCurrentPage(0);
         setView('reading');
     };
 
+    const handlePageFlip = (e: any) => {
+        setCurrentPage(e.data);
+    };
+
     const handleNextPage = () => {
-        if (!selectedBook || isFlipping) return;
-
-        setFlipDirection('next');
-        setIsFlipping(true);
-
-        setTimeout(() => {
-            if (currentPage < selectedBook.pages) {
-                setCurrentPage(prev => prev + 1);
-            } else {
-                const rewards = calculateReadingRewards(selectedBook);
-                onReadComplete(selectedBook, rewards);
-                setView('success');
-            }
-            setIsFlipping(false);
-        }, 400);
+        if (flipBookRef.current) {
+            flipBookRef.current.pageFlip().flipNext();
+        }
     };
 
     const handlePrevPage = () => {
-        if (currentPage > 1 && !isFlipping) {
-            setFlipDirection('prev');
-            setIsFlipping(true);
-            setTimeout(() => {
-                setCurrentPage(prev => prev - 1);
-                setIsFlipping(false);
-            }, 400);
+        if (flipBookRef.current) {
+            flipBookRef.current.pageFlip().flipPrev();
+        }
+    };
+
+    const handleFinishBook = () => {
+        if (selectedBook) {
+            const rewards = calculateReadingRewards(selectedBook);
+            onReadComplete(selectedBook, rewards);
+            setView('success');
         }
     };
 
@@ -90,7 +118,7 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
             <div className="min-h-[100dvh] w-full bg-gradient-to-b from-green-100 to-emerald-50 flex flex-col items-center justify-center p-6">
                 <div className="text-6xl mb-4 animate-bounce">📚✨</div>
                 <h1 className="text-2xl font-black text-emerald-800 lowercase mb-2">livro finalizado!</h1>
-                <p className="text-emerald-600 lowercase mb-6">"{selectedBook.title}"</p>
+                <p className="text-emerald-600 lowercase mb-6 text-center">"{selectedBook.title}"</p>
 
                 <div className="bg-white rounded-2xl p-4 shadow-md mb-6 w-full max-w-sm">
                     <p className="text-sm text-center text-cute-text/60 mb-3 lowercase">recompensas</p>
@@ -132,7 +160,6 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
     if (view === 'library') {
         return (
             <div className="min-h-[100dvh] w-full bg-gradient-to-b from-amber-50 to-orange-50 flex flex-col">
-                {/* Header */}
                 <header className="p-4 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-sm border-b border-amber-100">
                     <button
                         onClick={handleBack}
@@ -150,13 +177,11 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
                     escolha um livro para ler! 📖
                 </p>
 
-                {/* Carousel Navigation */}
                 <div className="flex items-center justify-center gap-4 px-4 mb-2">
                     <button
                         onClick={() => setCarouselPage(prev => Math.max(0, prev - 1))}
                         disabled={carouselPage === 0}
-                        className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-xl
-                       disabled:opacity-30 hover:scale-105 transition-transform"
+                        className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-xl disabled:opacity-30 hover:scale-105 transition-transform"
                     >
                         ◀️
                     </button>
@@ -166,14 +191,12 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
                     <button
                         onClick={() => setCarouselPage(prev => Math.min(totalCarouselPages - 1, prev + 1))}
                         disabled={carouselPage >= totalCarouselPages - 1}
-                        className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-xl
-                       disabled:opacity-30 hover:scale-105 transition-transform"
+                        className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-xl disabled:opacity-30 hover:scale-105 transition-transform"
                     >
                         ▶️
                     </button>
                 </div>
 
-                {/* Books Horizontal Scroll */}
                 <div className="flex-1 overflow-y-auto px-4 pb-4">
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                         {visibleBooks.map(book => {
@@ -185,22 +208,15 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
                                     key={book.id}
                                     onClick={() => handleSelectBook(book)}
                                     disabled={!canRead}
-                                    className={`
-                    bg-white rounded-2xl p-3 shadow-sm text-left transition-all
-                    ${canRead ? 'hover:scale-[1.02] hover:shadow-md active:scale-95' : 'opacity-50 grayscale'}
-                  `}
+                                    className={`bg-white rounded-2xl p-3 shadow-sm text-left transition-all ${canRead ? 'hover:scale-[1.02] hover:shadow-md active:scale-95' : 'opacity-50 grayscale'}`}
                                 >
                                     <div className="w-full aspect-[3/4] bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl flex items-center justify-center text-3xl mb-2">
                                         {book.cover}
                                     </div>
-
                                     <h3 className="font-bold text-xs text-cute-text lowercase truncate">{book.title}</h3>
                                     <p className="text-[9px] text-cute-text/50 truncate">{book.author}</p>
-
                                     <div className="flex items-center gap-1 mt-1.5">
-                                        <span className="bg-amber-100 text-amber-700 px-1 py-0.5 rounded text-[8px] font-bold">
-                                            {book.pages}p
-                                        </span>
+                                        <span className="bg-amber-100 text-amber-700 px-1 py-0.5 rounded text-[8px] font-bold">{book.pages}p</span>
                                         <span className="text-[9px] text-cute-text/40">⚡-{Math.abs(rewards.energy)}</span>
                                     </div>
                                 </button>
@@ -212,14 +228,14 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
         );
     }
 
-    // Reading View
+    // Reading View with react-pageflip
     if (!selectedBook) return null;
 
-    const progress = (currentPage / selectedBook.pages) * 100;
+    const progress = ((currentPage + 2) / selectedBook.pages) * 100;
+    const isNearEnd = currentPage >= selectedBook.pages - 2;
 
     return (
         <div className="min-h-[100dvh] w-full bg-gradient-to-b from-amber-50 to-orange-50 flex flex-col">
-            {/* Header */}
             <header className="p-4 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-sm">
                 <button
                     onClick={handleBack}
@@ -229,124 +245,113 @@ export const ReadingPage: React.FC<ReadingPageProps> = ({ onReadComplete, petEne
                 </button>
                 <div className="text-center">
                     <h1 className="text-sm font-bold text-cute-text lowercase truncate max-w-[180px]">{selectedBook.title}</h1>
-                    <p className="text-[10px] text-cute-text/50">{currentPage} / {selectedBook.pages}</p>
+                    <p className="text-[10px] text-cute-text/50">{Math.min(currentPage + 2, selectedBook.pages)} / {selectedBook.pages}</p>
                 </div>
                 <div className="w-10"></div>
             </header>
 
-            {/* Progress Bar */}
             <div className="px-4">
                 <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
                     <div
                         className="h-full bg-gradient-to-r from-amber-400 to-orange-400 rounded-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
+                        style={{ width: `${Math.min(100, progress)}%` }}
                     />
                 </div>
             </div>
 
-            {/* Book */}
-            <div className="flex-1 flex flex-col items-center justify-center px-6 py-4">
-                <div className="relative w-full max-w-sm perspective-1000">
-                    {/* Book page with flip animation */}
-                    <div
-                        className={`
-              w-full aspect-[3/4] bg-[#fffef5] rounded-lg shadow-2xl relative
-              transition-transform duration-400 transform-style-preserve-3d
-              ${isFlipping && flipDirection === 'next' ? 'animate-flip-right' : ''}
-              ${isFlipping && flipDirection === 'prev' ? 'animate-flip-left' : ''}
-            `}
-                        style={{
-                            background: 'linear-gradient(135deg, #fffef5 0%, #f8f5e6 100%)',
-                            boxShadow: 'inset -8px 0 30px rgba(0,0,0,0.1), 4px 4px 20px rgba(0,0,0,0.15)'
-                        }}
+            <div className="flex-1 flex flex-col items-center justify-center px-4 py-4">
+                <div className="w-full max-w-md flex justify-center">
+                    <HTMLFlipBook
+                        ref={flipBookRef}
+                        width={280}
+                        height={400}
+                        size="stretch"
+                        minWidth={200}
+                        maxWidth={400}
+                        minHeight={300}
+                        maxHeight={500}
+                        showCover={true}
+                        mobileScrollSupport={true}
+                        onFlip={handlePageFlip}
+                        className="shadow-2xl"
+                        style={{}}
+                        startPage={0}
+                        drawShadow={true}
+                        flippingTime={600}
+                        usePortrait={true}
+                        startZIndex={0}
+                        autoSize={true}
+                        maxShadowOpacity={0.5}
+                        showPageCorners={true}
+                        disableFlipByClick={false}
+                        swipeDistance={30}
+                        clickEventForward={true}
+                        useMouseEvents={true}
+                        renderOnlyPageLengthChange={false}
                     >
-                        {/* Page texture lines */}
-                        <div className="absolute inset-0 opacity-10">
-                            {Array.from({ length: 20 }).map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="w-full h-[1px] bg-gray-400"
-                                    style={{ marginTop: `${(i + 1) * 5}%` }}
-                                />
-                            ))}
-                        </div>
-
-                        {/* Page number */}
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-                            <span className="text-xs text-amber-700/40 font-serif">{currentPage}</span>
-                        </div>
-
-                        {/* Book spine shadow */}
+                        {/* Cover */}
                         <div
-                            className="absolute left-0 top-0 bottom-0 w-4 pointer-events-none"
-                            style={{
-                                background: 'linear-gradient(90deg, rgba(0,0,0,0.15) 0%, transparent 100%)'
-                            }}
-                        />
-                    </div>
+                            className="w-full h-full flex flex-col items-center justify-center p-4"
+                            style={{ background: 'linear-gradient(135deg, #92400e 0%, #78350f 100%)' }}
+                        >
+                            <span className="text-5xl mb-4">{selectedBook.cover}</span>
+                            <h2 className="text-white font-black text-center text-lg lowercase">{selectedBook.title}</h2>
+                            <p className="text-amber-200 text-xs mt-2">{selectedBook.author}</p>
+                        </div>
+
+                        {/* Pages */}
+                        {Array.from({ length: selectedBook.pages }).map((_, i) => (
+                            <Page key={i} pageNum={i + 1} totalPages={selectedBook.pages} />
+                        ))}
+
+                        {/* Back Cover */}
+                        <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={{ background: 'linear-gradient(135deg, #78350f 0%, #92400e 100%)' }}
+                        >
+                            <span className="text-4xl">📚</span>
+                        </div>
+                    </HTMLFlipBook>
                 </div>
 
-                {/* Pet reading */}
                 <div className="mt-4 flex items-center gap-2">
                     <span className="text-3xl">🥚</span>
-                    <span className="text-sm text-cute-text/60 lowercase">lendo junto...</span>
+                    <span className="text-sm text-cute-text/60 lowercase">lendo junto... toque para virar</span>
                 </div>
             </div>
 
-            {/* Navigation */}
             <div className="p-4 flex items-center gap-4">
                 <button
                     onClick={handlePrevPage}
-                    disabled={currentPage <= 1 || isFlipping}
-                    className="w-14 h-14 bg-white rounded-full shadow-md flex items-center justify-center text-2xl
-                     disabled:opacity-30 hover:scale-105 transition-transform active:scale-95"
+                    disabled={currentPage <= 0}
+                    className="w-14 h-14 bg-white rounded-full shadow-md flex items-center justify-center text-2xl disabled:opacity-30 hover:scale-105 transition-transform active:scale-95"
                 >
                     👈
                 </button>
 
+                {isNearEnd ? (
+                    <button
+                        onClick={handleFinishBook}
+                        className="flex-1 py-4 rounded-2xl font-black text-lg shadow-md lowercase transition-all hover:scale-[1.02] active:scale-95 bg-gradient-to-r from-green-500 to-emerald-400 text-white"
+                    >
+                        ✨ terminar!
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleNextPage}
+                        className="flex-1 py-4 rounded-2xl font-black text-lg shadow-md lowercase transition-all hover:scale-[1.02] active:scale-95 bg-gradient-to-r from-amber-400 to-orange-400 text-white"
+                    >
+                        virar página →
+                    </button>
+                )}
+
                 <button
                     onClick={handleNextPage}
-                    disabled={isFlipping}
-                    className={`
-            flex-1 py-4 rounded-2xl font-black text-lg shadow-md lowercase
-            transition-all hover:scale-[1.02] active:scale-95
-            ${currentPage >= selectedBook.pages
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-400 text-white'
-                            : 'bg-gradient-to-r from-amber-400 to-orange-400 text-white'
-                        }
-          `}
+                    className="w-14 h-14 bg-white rounded-full shadow-md flex items-center justify-center text-2xl hover:scale-105 transition-transform active:scale-95"
                 >
-                    {currentPage >= selectedBook.pages ? '✨ terminar!' : 'virar página →'}
+                    👉
                 </button>
-
-                <div className="w-14"></div>
             </div>
-
-            {/* CSS for flip animation */}
-            <style>{`
-        .perspective-1000 {
-          perspective: 1000px;
-        }
-        .transform-style-preserve-3d {
-          transform-style: preserve-3d;
-        }
-        @keyframes flipRight {
-          0% { transform: rotateY(0deg); }
-          50% { transform: rotateY(-15deg); }
-          100% { transform: rotateY(0deg); }
-        }
-        @keyframes flipLeft {
-          0% { transform: rotateY(0deg); }
-          50% { transform: rotateY(15deg); }
-          100% { transform: rotateY(0deg); }
-        }
-        .animate-flip-right {
-          animation: flipRight 0.4s ease-out;
-        }
-        .animate-flip-left {
-          animation: flipLeft 0.4s ease-out;
-        }
-      `}</style>
         </div>
     );
 };

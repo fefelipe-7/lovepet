@@ -15,24 +15,22 @@ export enum UserRole {
 
 export interface User {
   name: string;
-  role: UserRole;
   avatar: string;
 }
 
 export interface PetState {
   name: string;
-  type: string; // e.g., "Gato Galáctico", "Dinossauro Rosa"
-  satisfaction: number; // Agora chamado visualmente de "Felicidade" (Nível Geral)
-  hunger: number; // 0-100 (100 is full)
-  happiness: number; // Agora chamado visualmente de "Amor" (Afeto/Relacionamento)
-  energy: number; // 0-100
-  cleanliness: number; // 0-100
+  satisfaction: number;
+  hunger: number;
+  happiness: number;
+  energy: number;
+  cleanliness: number;
   mood: Mood;
-  age: number; // in days
-  growthStage: 'NEWBORN' | 'BABY' | 'PUPPY' | 'CHILD' | 'TEEN'; // Stage derived from age/xp
-  xp: number; // Experience points to unlock stages
-  image: string | null; // URL of the generated image
-  isSleeping: boolean; // Novo estado para o sistema de sono
+  age: number;
+  growthStage: 'NEWBORN' | 'BABY' | 'PUPPY' | 'CHILD' | 'TEEN';
+  xp: number;
+  image: string | null;
+  isSleeping: boolean;
 }
 
 export interface ChatMessage {

@@ -2,49 +2,37 @@ import React from 'react';
 import { PetState, User, UserRole, GameItem } from '../types';
 import { StatusBars } from '../components/StatusBars';
 import { ActionPanel } from '../components/ActionPanel';
-import { SetupModal } from '../components/SetupModal';
 import { Mood } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 interface HomeProps {
-    pet: PetState | null;
-    users: Record<UserRole, User> | null;
+    pet: PetState;
+    users: Record<UserRole, User>;
     currentRole: UserRole;
-    isSetup: boolean;
-    messages: any[]; // refine type if possible, or import ChatMessage
+    messages: any[];
     isThinking: boolean;
     isMenuExpanded: boolean;
     setIsMenuExpanded: (v: boolean) => void;
     activeStats: string[];
     onInteraction: (item: GameItem) => void;
-    onSetupComplete: (u1: User, u2: User, p: PetState) => void;
     onToggleUser: () => void;
     onWakeUp: () => void;
     isSwitchingUser: boolean;
 }
 
 export const Home: React.FC<HomeProps> = ({
-    pet, users, currentRole, isSetup, messages, isThinking,
+    pet, users, currentRole, messages, isThinking,
     isMenuExpanded, setIsMenuExpanded, activeStats,
-    onInteraction, onSetupComplete, onToggleUser, onWakeUp, isSwitchingUser
+    onInteraction, onToggleUser, onWakeUp, isSwitchingUser
 }) => {
     const navigate = useNavigate();
 
-    // Use useNavigate to go to kitchen
     const goToKitchen = () => {
         navigate('/cooking');
     };
 
-    if (!isSetup) {
-        return <SetupModal onComplete={onSetupComplete} />;
-    }
-
-    if (!pet || !users) return null;
-
     const currentUser = users[currentRole];
     const lastPetMessage = [...messages].reverse().find(m => m.sender === 'pet')?.text || "...";
-    const lastActionMsg = [...messages].reverse().find(m => m.isAction && m.sender !== 'pet');
-    const lastActionUser = lastActionMsg ? users[lastActionMsg.sender as UserRole] : null;
 
     return (
         <div className={`h-[100dvh] w-full bg-[#FFF5F7] flex flex-col items-center relative font-nunito text-cute-text overflow-hidden transition-colors duration-1000 ${pet.isSleeping ? 'brightness-50 saturate-50 bg-[#1e1b4b]' : ''}`}>
@@ -52,8 +40,6 @@ export const Home: React.FC<HomeProps> = ({
             {/* --- HEADER --- */}
             <header className="absolute top-2 sm:top-4 w-full px-4 flex justify-center z-50">
                 <div className="w-full max-w-[95%] sm:max-w-md bg-white/80 backdrop-blur-md border-2 border-white rounded-[2rem] p-1.5 pr-3 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] flex items-center gap-2 sm:gap-3 transition-all hover:bg-white/90">
-                    {/* ... (Copy header content from App.tsx) ... */}
-                    {/* Simplified for brevity in this extraction, will copy full content in replace step or use view_file to get it exact */}
 
                     {/* Left: Avatar & Switcher */}
                     <button
@@ -70,13 +56,18 @@ export const Home: React.FC<HomeProps> = ({
                 `}>
                             {currentUser.avatar}
                         </div>
+                        {!pet.isSleeping && (
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-white rounded-full flex items-center justify-center text-[9px] sm:text-[10px] shadow-sm border border-gray-100 text-cute-text/60 group-hover:scale-110 transition-transform">
+                                🔄
+                            </div>
+                        )}
                     </button>
 
-                    {/* Middle: Stats */}
+                    {/* Middle: Name & Level */}
                     <div className="flex-1 flex flex-col justify-center gap-0.5">
                         <div className="flex justify-between items-end pr-1">
                             <span className="font-extrabold text-cute-text text-xs sm:text-sm leading-none truncate max-w-[100px] lowercase">{currentUser.name}</span>
-                            <span className="bg-cute-yellow/40 px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9px] font-bold text-cute-text/60 tracking-tight leading-none lowercase">lvl 3</span>
+                            <span className="bg-cute-yellow/40 px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9px] font-bold text-cute-text/60 tracking-tight leading-none lowercase">papai/mamãe</span>
                         </div>
                         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden relative">
                             <div className="absolute inset-0 bg-gradient-to-r from-cute-pink to-cute-yellow w-[70%] rounded-full"></div>
@@ -119,8 +110,14 @@ export const Home: React.FC<HomeProps> = ({
                             </div>
                         )}
 
+                        {pet.isSleeping && (
+                            <div className="absolute -top-10 right-0 text-white font-bold text-4xl animate-pulse z-30 lowercase">zzz...</div>
+                        )}
+
                         {/* Pet Sprite */}
                         <div className="w-full h-full relative cursor-pointer group">
+                            <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-32 sm:w-40 h-6 sm:h-8 bg-black/10 rounded-[100%] blur-sm"></div>
+
                             {pet.image ? (
                                 <img
                                     src={pet.image}
@@ -133,6 +130,16 @@ export const Home: React.FC<HomeProps> = ({
                                 />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-6xl sm:text-8xl animate-bounce">🥚</div>
+                            )}
+
+                            {!pet.isSleeping && (
+                                <div className="absolute -top-2 -left-2 sm:-top-4 sm:-left-4 bg-white p-1.5 sm:p-2 rounded-full shadow-md text-xl sm:text-2xl animate-wiggle">
+                                    {pet.mood === Mood.HAPPY ? '🥰' :
+                                        pet.mood === Mood.SAD ? '😢' :
+                                            pet.mood === Mood.ANGRY ? '😠' :
+                                                pet.mood === Mood.SLEEPY ? '😴' :
+                                                    pet.mood === Mood.EXCITED ? '🤩' : '😐'}
+                                </div>
                             )}
                         </div>
                     </div>
@@ -152,7 +159,7 @@ export const Home: React.FC<HomeProps> = ({
             <div className="w-full relative z-30 shrink-0">
                 <ActionPanel
                     onInteract={onInteraction}
-                    disabled={isThinking || (pet.isSleeping && !pet.isSleeping)}
+                    disabled={isThinking}
                     currentUserRole={currentRole}
                     isSleeping={pet.isSleeping}
                     onWakeUp={onWakeUp}

@@ -2,182 +2,187 @@ import React, { useEffect, useState, useRef } from 'react';
 import { PetState } from '../types';
 
 interface StatusBarsProps {
-  pet: PetState;
-  activeStats: string[];
+    pet: PetState;
+    activeStats: string[];
 }
 
 // Component to handle the numeric change animation
-const StatValueWithDelta = ({ value, label, compact = false }: { value: number, label: string, compact?: boolean }) => {
+const StatValueWithDelta = ({ value }: { value: number }) => {
     const [delta, setDelta] = useState<number | null>(null);
     const prevValueRef = useRef(value);
-    
+
     useEffect(() => {
         const diff = value - prevValueRef.current;
         if (diff !== 0) {
             setDelta(diff);
             prevValueRef.current = value;
-            
-            // Clear delta after animation
-            const timer = setTimeout(() => {
-                setDelta(null);
-            }, 2000);
+            const timer = setTimeout(() => setDelta(null), 2000);
             return () => clearTimeout(timer);
         }
     }, [value]);
 
     return (
-        <div className="flex items-center justify-end relative min-w-[2rem]">
-             {/* Floating Delta Animation */}
-             {delta !== null && (
+        <div className="relative">
+            {delta !== null && (
                 <span className={`
-                    absolute -top-3 right-0 text-xs font-black animate-pop shadow-white drop-shadow-md
+                    absolute -top-4 right-0 text-sm font-black animate-bounce
                     ${delta > 0 ? 'text-green-500' : 'text-red-400'}
                 `}>
                     {delta > 0 ? `+${delta}` : delta}
                 </span>
             )}
-            <span className={`font-black text-cute-text/80 ${compact ? 'text-[10px]' : 'text-xs'}`}>{Math.round(value)}%</span>
+            <span className="font-black text-lg">{Math.round(value)}%</span>
         </div>
     );
 };
 
-const ProgressBar = ({ 
-    value, 
-    color, 
-    isActive,
-    height = "h-3"
-}: { 
-    value: number, 
-    color: string, 
-    isActive: boolean,
-    height?: string
-}) => (
-    <div className={`flex-1 ${height} bg-gray-100 rounded-full overflow-hidden shadow-inner relative ring-1 ring-black/5`}>
-        <div 
-            className={`h-full rounded-full ${color} transition-all duration-700 ease-out relative flex items-center justify-end`}
-            style={{ width: `${value}%` }}
-        >
-            {isActive && (
-                 <div className="absolute inset-0 bg-white/30 w-full animate-[shimmer_1s_infinite]"></div>
-            )}
-        </div>
-    </div>
-);
+interface StatCardProps {
+    id: string;
+    label: string;
+    value: number;
+    icon: string;
+    color: string;
+    gradientFrom: string;
+    gradientTo: string;
+    isActive: boolean;
+    isMain?: boolean;
+}
 
-const StatItem = ({ 
-    id, 
-    label,
-    value, 
-    icon, 
-    color, 
-    activeStats,
-    isGrid = false
-}: { 
-    id: string, 
-    label: string,
-    value: number, 
-    icon: string, 
-    color: string, 
-    activeStats: string[],
-    isGrid?: boolean
+const StatCard: React.FC<StatCardProps> = ({
+    id, label, value, icon, color, gradientFrom, gradientTo, isActive, isMain = false
 }) => {
-    const isActive = activeStats.includes(id);
+    const percentage = Math.min(100, Math.max(0, value));
 
-    if (isGrid) {
+    if (isMain) {
         return (
             <div className={`
-                bg-white rounded-xl p-2 shadow-sm border border-indigo-50 flex flex-col gap-1.5 justify-center
-                transition-transform duration-300 ${isActive ? 'scale-[1.02] ring-2 ring-cute-pink/50 z-10' : ''}
+                w-full bg-white rounded-2xl p-4 shadow-lg border-2 transition-all duration-300
+                ${isActive ? 'ring-4 ring-yellow-300 scale-[1.02]' : 'border-gray-100'}
             `}>
-                <div className="flex justify-between items-center w-full">
-                    <div className="flex items-center gap-1.5 overflow-hidden">
-                        <span className={`flex-shrink-0 ${isActive ? 'animate-bounce' : ''}`}>{icon}</span>
-                        <span className="text-[10px] font-bold text-cute-text tracking-wider truncate lowercase">{label}</span>
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                        <div className={`
+                            w-12 h-12 rounded-xl bg-gradient-to-br ${gradientFrom} ${gradientTo} 
+                            flex items-center justify-center text-2xl shadow-sm
+                            ${isActive ? 'animate-bounce' : ''}
+                        `}>
+                            {icon}
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-cute-text/60 uppercase tracking-wider">{label}</p>
+                            <StatValueWithDelta value={value} />
+                        </div>
                     </div>
-                    <StatValueWithDelta value={value} label={label} compact />
                 </div>
-                <ProgressBar value={value} color={color} isActive={isActive} height="h-2" />
+
+                <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                    <div
+                        className={`h-full rounded-full bg-gradient-to-r ${gradientFrom} ${gradientTo} transition-all duration-700 ease-out relative`}
+                        style={{ width: `${percentage}%` }}
+                    >
+                        {isActive && (
+                            <div className="absolute inset-0 bg-white/40 animate-pulse"></div>
+                        )}
+                    </div>
+                </div>
             </div>
         );
     }
 
-    // Full Width Layout (For Satisfaction/Main Stat)
+    // Grid Card
     return (
         <div className={`
-            w-full bg-white rounded-xl p-2 px-3 shadow-sm border border-indigo-50 flex items-center gap-3
-            transition-transform duration-300 ${isActive ? 'scale-[1.02] ring-2 ring-cute-pink/50 z-10' : ''}
+            bg-white rounded-xl p-3 shadow-md border-2 transition-all duration-300
+            ${isActive ? 'ring-2 ring-yellow-300 scale-105' : 'border-gray-50'}
         `}>
-            <div className={`text-xl flex-shrink-0 ${isActive ? 'animate-bounce' : ''}`}>{icon}</div>
-            
-            <div className="flex-1 flex items-center gap-3">
-                 <span className="text-[10px] font-bold text-cute-text tracking-wider w-14 truncate lowercase">{label}</span>
-                 <ProgressBar value={value} color={color} isActive={isActive} />
-                 <StatValueWithDelta value={value} label={label} />
+            <div className="flex items-center gap-2 mb-2">
+                <div className={`
+                    w-8 h-8 rounded-lg bg-gradient-to-br ${gradientFrom} ${gradientTo}
+                    flex items-center justify-center text-lg shadow-sm
+                    ${isActive ? 'animate-bounce' : ''}
+                `}>
+                    {icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-cute-text/50 uppercase tracking-wider truncate">{label}</p>
+                    <p className="text-sm font-black text-cute-text">{Math.round(value)}%</p>
+                </div>
+            </div>
+
+            <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                <div
+                    className={`h-full rounded-full bg-gradient-to-r ${gradientFrom} ${gradientTo} transition-all duration-700 ease-out relative`}
+                    style={{ width: `${percentage}%` }}
+                >
+                    {isActive && (
+                        <div className="absolute inset-0 bg-white/40 animate-pulse"></div>
+                    )}
+                </div>
             </div>
         </div>
     );
 };
 
 export const StatusBars: React.FC<StatusBarsProps> = ({ pet, activeStats }) => {
-  return (
-    <div className="w-full bg-white/40 backdrop-blur-md p-3 border-y border-white/60 shadow-sm flex flex-col gap-2">
-        
-        {/* Main Stat - Full Width */}
-        <StatItem 
-            id="satisfaction" 
-            label="nível"
-            value={pet.satisfaction} 
-            icon="👑" 
-            color="bg-gradient-to-r from-[#FF9AA2] to-[#FFB7B2]" 
-            activeStats={activeStats}
-        />
-        
-        {/* Secondary Stats - 2x2 Grid */}
-        <div className="grid grid-cols-2 gap-2 w-full">
-            <StatItem 
-                id="hunger" 
-                label="fome"
-                value={pet.hunger} 
-                icon="🍖" 
-                color="bg-[#FFB7B2]" 
-                activeStats={activeStats}
-                isGrid
+    return (
+        <div className="w-full px-4 py-3 flex flex-col gap-3">
+
+            {/* Main Stat - Full Width */}
+            <StatCard
+                id="satisfaction"
+                label="Nível de Felicidade"
+                value={pet.satisfaction}
+                icon="👑"
+                color="pink"
+                gradientFrom="from-pink-400"
+                gradientTo="to-rose-300"
+                isActive={activeStats.includes('satisfaction')}
+                isMain
             />
-            <StatItem 
-                id="happiness" 
-                label="amor"
-                value={pet.happiness} 
-                icon="💖" 
-                color="bg-[#FF9AA2]" 
-                activeStats={activeStats}
-                isGrid
-            />
-            <StatItem 
-                id="energy" 
-                label="energia"
-                value={pet.energy} 
-                icon="⚡" 
-                color="bg-[#FFDAC1]" 
-                activeStats={activeStats}
-                isGrid
-            />
-            <StatItem 
-                id="cleanliness" 
-                label="higiene"
-                value={pet.cleanliness} 
-                icon="🧼" 
-                color="bg-[#B5EAD7]" 
-                activeStats={activeStats}
-                isGrid
-            />
+
+            {/* Secondary Stats - 2x2 Grid */}
+            <div className="grid grid-cols-2 gap-3 w-full">
+                <StatCard
+                    id="hunger"
+                    label="Fome"
+                    value={pet.hunger}
+                    icon="🍖"
+                    color="orange"
+                    gradientFrom="from-orange-400"
+                    gradientTo="to-amber-300"
+                    isActive={activeStats.includes('hunger')}
+                />
+                <StatCard
+                    id="happiness"
+                    label="Amor"
+                    value={pet.happiness}
+                    icon="💖"
+                    color="red"
+                    gradientFrom="from-red-400"
+                    gradientTo="to-pink-300"
+                    isActive={activeStats.includes('happiness')}
+                />
+                <StatCard
+                    id="energy"
+                    label="Energia"
+                    value={pet.energy}
+                    icon="⚡"
+                    color="yellow"
+                    gradientFrom="from-yellow-400"
+                    gradientTo="to-amber-200"
+                    isActive={activeStats.includes('energy')}
+                />
+                <StatCard
+                    id="cleanliness"
+                    label="Higiene"
+                    value={pet.cleanliness}
+                    icon="🧼"
+                    color="green"
+                    gradientFrom="from-green-400"
+                    gradientTo="to-emerald-300"
+                    isActive={activeStats.includes('cleanliness')}
+                />
+            </div>
         </div>
-        
-        <style>{`
-            @keyframes shimmer {
-                0% { transform: translateX(-100%); }
-                100% { transform: translateX(100%); }
-            }
-        `}</style>
-    </div>
-  );
+    );
 };

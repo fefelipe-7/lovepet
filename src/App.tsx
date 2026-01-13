@@ -9,14 +9,36 @@ import { KitchenPage } from './pages/Kitchen';
 import { consumeFromInventory } from './services/cooking/inventoryService';
 
 const AppContent: React.FC = () => {
+    // --- HARDCODED USERS ---
+    const defaultUsers: Record<UserRole, User> = {
+        [UserRole.USER_A]: { name: 'fefe', avatar: '👨' },
+        [UserRole.USER_B]: { name: 'nana', avatar: '👩' }
+    };
+
+    const defaultPet: PetState = {
+        name: 'bichinho',
+        age: 1,
+        mood: Mood.HAPPY,
+        hunger: 80,
+        happiness: 80,
+        energy: 80,
+        cleanliness: 80,
+        satisfaction: 80,
+        isSleeping: false,
+        image: '',
+        growthStage: 'BABY',
+        xp: 0
+    };
+
     // --- State ---
-    const [isSetup, setIsSetup] = useState(false);
-    const [users, setUsers] = useState<Record<UserRole, User> | null>(null);
+    const [users] = useState<Record<UserRole, User>>(defaultUsers);
+    const [pet, setPet] = useState<PetState>(defaultPet);
     const [currentRole, setCurrentRole] = useState<UserRole>(UserRole.USER_A);
     const [isSwitchingUser, setIsSwitchingUser] = useState(false);
 
-    const [pet, setPet] = useState<PetState | null>(null);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [messages, setMessages] = useState<ChatMessage[]>([
+        { id: '0', sender: 'pet', text: `oiii! eu sou ${defaultPet.name}! ❤️`, timestamp: Date.now() }
+    ]);
     const [isThinking, setIsThinking] = useState(false);
     const [isMenuExpanded, setIsMenuExpanded] = useState(false);
     const [activeStats, setActiveStats] = useState<string[]>([]);
@@ -122,21 +144,8 @@ const AppContent: React.FC = () => {
         SoundService.playHappy();
     };
 
-    const handleSetupComplete = (u1: User, u2: User, initialPet: PetState) => {
-        setUsers({ [UserRole.USER_A]: u1, [UserRole.USER_B]: u2 });
-        setPet(initialPet);
-        setIsSetup(true);
-        SoundService.playHappy();
-        addMessage({
-            id: Date.now().toString(),
-            sender: 'pet',
-            text: `oiii! eu sou ${initialPet.name}! ❤️`,
-            timestamp: Date.now()
-        });
-    };
-
     const toggleUser = () => {
-        if (isSwitchingUser || pet?.isSleeping) return;
+        if (isSwitchingUser || pet.isSleeping) return;
         SoundService.playPop();
         setIsSwitchingUser(true);
         setTimeout(() => {
@@ -144,6 +153,7 @@ const AppContent: React.FC = () => {
             setIsSwitchingUser(false);
         }, 300);
     };
+
 
     useEffect(() => {
         if (!isSetup) return;
@@ -164,27 +174,27 @@ const AppContent: React.FC = () => {
             });
         }, 20000);
         return () => clearInterval(gameLoop);
-    }, [isSetup]);
+    }, []);
 
     return (
         <Routes>
             <Route path="/" element={
                 <Home
-                    pet={pet} users={users} currentRole={currentRole} isSetup={isSetup}
+                    pet={pet} users={users} currentRole={currentRole}
                     messages={messages} isThinking={isThinking}
                     isMenuExpanded={isMenuExpanded} setIsMenuExpanded={setIsMenuExpanded}
                     activeStats={activeStats} onInteraction={handleInteraction}
-                    onSetupComplete={handleSetupComplete} onToggleUser={toggleUser}
+                    onToggleUser={toggleUser}
                     onWakeUp={handleWakeUp} isSwitchingUser={isSwitchingUser}
                 />
             } />
             <Route path="/cooking" element={
                 <KitchenPage
                     onCookComplete={handleCookComplete}
-                    petPhase={pet?.growthStage === 'NEWBORN' ? 1 :
-                        pet?.growthStage === 'BABY' ? 2 :
-                            pet?.growthStage === 'PUPPY' ? 3 :
-                                pet?.growthStage === 'CHILD' ? 4 : 5}
+                    petPhase={pet.growthStage === 'NEWBORN' ? 1 :
+                        pet.growthStage === 'BABY' ? 2 :
+                            pet.growthStage === 'PUPPY' ? 3 :
+                                pet.growthStage === 'CHILD' ? 4 : 5}
                 />
             } />
         </Routes>

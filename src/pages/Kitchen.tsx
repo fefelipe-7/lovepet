@@ -8,6 +8,10 @@ import { evaluateDish, getPetReaction } from '../services/cooking/evaluationServ
 import { discoverRecipe, getRecipeBook } from '../services/cooking/recipeBookService';
 import { addToInventory } from '../services/cooking/inventoryService';
 
+// Assets
+import cenarioCozinha from '../assets/images/cenarios/cenario-cozinha.png';
+import panelaRn from '../assets/images/panelas/panela-rn.png';
+
 interface KitchenPageProps {
     onCookComplete: (food: GameItem, quality: number) => void;
     petPhase: number;
@@ -188,7 +192,10 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
 
     // --- Main Cooking UI ---
     return (
-        <div className="h-[100dvh] w-full bg-[#FFF5F7] flex flex-col overflow-hidden">
+        <div
+            className="h-[100dvh] w-full flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${cenarioCozinha})` }}
+        >
 
             {/* Header */}
             <header className="p-4 flex items-center justify-between shrink-0">
@@ -219,38 +226,48 @@ export const KitchenPage: React.FC<KitchenPageProps> = ({ onCookComplete, petPha
                     </div>
                 )}
 
-                {/* The Bowl */}
+                {/* The Pan */}
                 <div className={`
-                    w-56 h-56 rounded-[40%] ${textureVis.bg} ${textureVis.animation}
-                    shadow-xl border-8 border-white/50 relative overflow-hidden
-                    flex flex-wrap items-center justify-center gap-2 p-4
+                    relative w-64 h-64 flex items-center justify-center
                     transition-all duration-300
-                    ${dish.status === 'burned' ? 'bg-gray-800 border-gray-600' : ''}
                     ${isAnimating && lastAction === 'MIX' ? 'rotate-12' : ''}
                     ${isAnimating && lastAction === 'BEAT' ? 'scale-95' : ''}
                 `}>
+                    {/* Pan Image */}
+                    <img
+                        src={panelaRn}
+                        alt="Panela"
+                        className={`
+                            w-full h-full object-contain drop-shadow-2xl
+                            ${dish.status === 'burned' ? 'brightness-50' : ''}
+                        `}
+                    />
+
                     {/* Steam if hot */}
                     {(dish.temperature === 'hot' || dish.temperature === 'burning') && (
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex gap-2">
-                            <span className="text-2xl animate-float opacity-50">💨</span>
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex gap-2">
+                            <span className="text-3xl animate-float opacity-60">💨</span>
+                            <span className="text-2xl animate-float delay-300 opacity-40">💨</span>
                             <span className="text-xl animate-float delay-500 opacity-30">💨</span>
                         </div>
                     )}
 
-                    {/* Ingredients in bowl with animation */}
-                    {dish.ingredients.map((ing, idx) => (
-                        <span
-                            key={idx}
-                            className={`text-3xl drop-shadow-sm transition-all duration-300 ${ingredientAnim}`}
-                            style={{ animationDelay: `${idx * 50}ms` }}
-                        >
-                            {dish.status === 'burned' ? '🔥' : ing.icon}
-                        </span>
-                    ))}
+                    {/* Ingredients inside pan */}
+                    <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-1 p-12">
+                        {dish.ingredients.map((ing, idx) => (
+                            <span
+                                key={idx}
+                                className={`text-2xl drop-shadow-lg transition-all duration-300 ${ingredientAnim}`}
+                                style={{ animationDelay: `${idx * 50}ms` }}
+                            >
+                                {dish.status === 'burned' ? '🔥' : ing.icon}
+                            </span>
+                        ))}
 
-                    {dish.ingredients.length === 0 && (
-                        <span className="text-cute-text/30 font-bold text-sm lowercase">adicione ingredientes</span>
-                    )}
+                        {dish.ingredients.length === 0 && (
+                            <span className="text-white/50 font-bold text-xs lowercase text-center drop-shadow-md">adicione ingredientes</span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Status Pills */}
